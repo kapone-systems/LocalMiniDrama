@@ -75,6 +75,21 @@ Web（`web/catalog.go:27-30`）：
 > **关键**：`grok-imagine-image` 在 **Web 侧只有 Image 能力，没有 ImageEdit**（`web/catalog.go:28` 只有
 > `CapabilityImage`）。所以「带参考图的图生图」能否成功，**取决于号池里是否有支持 Edit 的账号**
 > （Console 的 `grok-imagine-image` 支持 Edit）。
+>
+> **实测补充（v3.1.6，2026-09-18）**：图片编辑能力按模型分流到不同渠道，可在管理端
+> `model_routes` 表看到（`capability='image_edit'`）：
+>
+> | 模型 | image_edit 路由到的渠道 |
+> |---|---|
+> | `grok-imagine-image-edit` | **Web**（`Web/grok-imagine-image-edit`） |
+> | `grok-imagine-image` | Console（`Console/grok-imagine-image`） |
+> | `grok-imagine-image-quality` | Console |
+> | `grok-imagine-image-2.0` | Console |
+>
+> 因此：**号池只有 Web 账号时，图生图应使用 `grok-imagine-image-edit`**；
+> 用 `grok-imagine-image` 做图生图则必须有可用的 Console 图片额度，
+> 否则报 `503 当前没有可用的上游账号` 或 `429 上游账号额度等待恢复`。
+> 详见验收记录 §6.6。
 
 ### 3.3 视频模型（`console/catalog.go:44-46`）
 
@@ -323,6 +338,11 @@ ConsoleVideoMaxReferenceDurationSeconds = 10
 | **A5** | 未提及 | **`image` 字段必须且只能有 `url` 或 `file_id` 之一**（`handler.go:751-753`）；`file_id` 在图片编辑中不支持 | 构造首帧对象时不要同时带两个字段 |
 | **A6** | 未提及 | 视频接口对 `output`/`storage_options` 非空**直接 400**（`handler.go:733-740`） | 不要透传这些字段 |
 | **A7** | 未提及 | 轮询完成时视频地址取 `video.url`，优先是**免鉴权**的 `/v1/media/videos/{assetId}` | LMD 可直接下载该 URL，无需额外鉴权处理 |
+
+> **A1–A7 均已对真实 grok2api v3.1.6 实例实测验证**（2026-09-18）。
+> 其中 A2（`size` 被拒）、A4（Web 无 Edit 能力）、A5（互斥）、A6（未知字段 400）、
+> A7（直链免鉴权）拿到了真实上游的响应作为证据；
+> 详细过程与原始响应见 `docs/grok2api-acceptance.md` §6。
 
 ---
 

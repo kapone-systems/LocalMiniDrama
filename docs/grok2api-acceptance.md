@@ -22,7 +22,8 @@
 | 一键导入配置 | `各大平台中转站配置/grok2api.json` | ✅ |
 | 前端 grok2api 预设 | `frontweb/src/components/AIConfigContent.vue` | ✅ |
 | 接入文档 | `docs/configuration.md`（新增 grok2api 章节） | ✅ |
-| 端到端验收脚本 | `backend-node/scripts/verify-grok2api-e2e.js` | ✅ |
+| 端到端验收脚本（模拟上游） | `backend-node/scripts/verify-grok2api-e2e.js` | ✅ |
+| 真实上游联调脚本 | `backend-node/scripts/verify-grok2api-live.js` | ✅ |
 | 验收记录 | 本文件 | ✅ |
 
 ---
@@ -230,19 +231,160 @@ A7 轮询地址免鉴权）详见契约文档附录。
 
 ---
 
-## 6. 未覆盖项 / 后续事项
+## 6. 真实上游联调（第二轮，2026-09-18）
 
-1. **未对真实 grok2api 实例做联调**：验证时本机 `127.0.0.1:8000` 无服务监听，
-   且计划文档提到的 Electron 数据库路径 `%APPDATA%\localminidrama-desktop\backend\data\drama_generator.db`
-   在本机不存在。因此所有验证均基于「按上游真实校验规则实现的模拟服务」。
-   **建议**：grok2api 实例启动后，用 `docs/grok2api-contract.md` §5.2 的 curl 命令做一次真实联调。
-2. **`duration` 的实际可用区间未实测**：契约文档记录上游接受 1–15，但各模型/账号档位的
-   真实可用值需实测（例如是否只有 6/10 等离散值）。
-3. **号池渠道差异未实测**：图生视频与参考图依赖 Console 账号。若实际号池只有 Web 账号，
-   这两项会失败并提示「请使用 Build 或 Console」——需按实际号池确认。
-4. **TTS 需 Console 账号**，同样未实测。
-5. **Electron 打包版未重新打包**：本次改动只在源码模式验证；如需出 exe，
-   需在 `desktop/` 执行 `npm run dist`。
+> 首轮验收（§1–§5）只用了模拟服务。本节记录**真实 grok2api 实例**上的联调结果。
+
+### 6.1 实例与环境
+
+第一轮验收时本机 `127.0.0.1:8000` 无服务监听，原因是 **Docker Desktop 未启动**。
+启动后确认实例其实一直在：
+
+```
+$ docker ps
+ghcr.io/chenyme/grok2api:latest   Up (healthy)   0.0.0.0:8000->8000/tcp   grok2api
+```
+
+| 项 | 值 |
+|---|---|
+| 镜像 | `ghcr.io/chenyme/grok2api:latest` |
+| 配置 | `C:\Users\Lenovo\.zcode\workspace\default\grok2api\config.yaml` |
+| 账号池 | 1 个邮箱的三种关联账号：`grok_web`(Web/heavy) + `grok_console`(Console) + `grok_build`(Build) |
+| 客户端 Key | 通过管理 API `GET /api/admin/v1/client-keys/2/secret` 取回 |
+
+### 6.2 契约 §5.2 的 curl 打通结果
+
+| # | 验证项 | 结果 |
+|---|---|---|
+| 1 | `GET /v1/models` | ✅ 返回 23 个模型，与契约 §3 的模型表一致 |
+| 2 | 文生图（`aspect_ratio`，不发 `size`） | ✅ HTTP 200，真实出图 |
+| 3 | 文本 `chat/completions`（SSE 流式） | ✅ 真实生成：「雨夜街头，旧爱意外重逢，泪混雨下。」 |
+| 4 | TTS `audio/speech` | ✅ HTTP 200，63KB MP3（24kHz 单声道） |
+| 5 | 文生视频提交 + 轮询 | ✅ 提交得 `request_id`；轮询 `pending(10%)`→`pending(99%)`→`done`，取到 `video.url` |
+| 6 | 视频直链下载 | ✅ 1.7MB MP4，**无需 API Key**（实测印证契约 A7） |
+| 7 | 图生图 `/v1/images/edits` | ✅ 用 `grok-imagine-image-edit` 模型 HTTP 200 真实出图（见 6.4） |
+
+### 6.3 实测复现并证实了两个原始根因
+
+计划文档 §0.3 记录的日志错误 `quality 必须是 low 或 medium`，在真实上游上**逐条复现**：
+
+```bash
+# 旧代码的真实请求体（size + quality:'standard'）→ 400，与计划文档日志完全一致
+$ curl ... -d '{"model":"grok-imagine-image","prompt":"a cat","n":1,"size":"2560x1440","quality":"standard"}'
+{"error":{"code":"invalid_parameter","message":"quality 必须是 low 或 medium"}}   HTTP 400
+
+# 只发 size、不发 quality → 仍然 400（size 本身也不被接受）
+$ curl ... -d '{"model":"grok-imagine-image","prompt":"a dog","n":1,"size":"2560x1440"}'
+{"error":{"message":"aspect_ratio 不受支持"}}                                    HTTP 400
+
+# 新代码的请求体（只发 aspect_ratio）→ 200 成功
+$ curl ... -d '{"model":"grok-imagine-image","prompt":"a cat sitting on a chair","n":1,"aspect_ratio":"16:9"}'
+{"created":...,"data":[{"url":"http://127.0.0.1:8000/v1/media/images/img_..."}]}  HTTP 200
+```
+
+→ **D1 与 D2 两个根因都在真实上游上得到证实**，且新代码的请求形状确实能通过。
+
+同时实测证实了契约中的三条上游校验规则（纯校验，不耗额度）：
+
+| 规则 | 实测响应 |
+|---|---|
+| `image` 与 `reference_images` 互斥 | 400 `image 不能与 reference_images/reference_audios 同时使用` |
+| 视频接口拒绝未知字段 | 400 `json: unknown field "seed"`（证实 `DisallowUnknownFields`） |
+| 图片编辑 >8 张 | 400 `image 或 images 数量必须在 1 到 8 之间` |
+| `quality` 值非法（`high`） | 400 `quality 必须是 low 或 medium` |
+| 参考图视频被路由到 Console | 400 `Grok Web 当前仅支持文本生视频；图片视频请使用 Build 或 Console Provider`（**实测印证契约 §1.3 与 A4**） |
+
+### 6.4 参考图确实生效（真实上游）
+
+用真实生成的图作为参考图，走 `/v1/images/edits`（模型 `grok-imagine-image-edit`）真实出图，
+再对比输入输出：
+
+```
+ref.jpg    960x960  jpeg
+edited.jpg 1408x1408 jpeg
+感知哈希汉明距离: 10 / 64   (完全不同约 32)
+```
+
+→ 输出与参考图**高度相似**，说明参考图确实被上游采纳。这直接验证了 D3 的修复
+（旧代码把参考图发到 `/images/generations` 的 `image` 字段，会被静默丢弃）。
+
+### 6.5 LMD 真实代码路径打真实上游
+
+用 `scripts/verify-grok2api-live.js`（走 LMD 真实的 `callImageApi` / `callVideoApi` /
+`pollVideoTask` / `testConnection`，非模拟）：
+
+```
+$ G2A_KEY=g2a_xxx node scripts/verify-grok2api-live.js
+PASS  testConnection 真实上游通过
+PASS  testConnection 拒绝不存在的模型  — 模型「grok-imagine-medium」在上游不存在。可用模型：grok-4.5, grok-4.6, ...
+PASS  文生图真实出图（角色/场景图）  — http://127.0.0.1:8000/v1/media/images/img_...   耗时 5.6s
+FAIL  带参考图分镜图真实出图（/images/edits）  — 上游 Console 额度耗尽（非适配缺陷）
+PASS  文生视频真实提交  — request_id=video_VceRLrOZqHQaPC2wiEBQGdfe
+PASS  文生视频轮询拿到真实 video.url  — http://127.0.0.1:8000/v1/media/videos/vid_...
+
+==== 5/6 通过 ====
+```
+
+**D8 修复在真实上游上的效果**（通过 LMD 的 `/api/v1/ai-configs/test` HTTP 路由）：
+
+```
+正确模型  → {"success":true,"message":"连接测试成功"}
+错误模型  → {"success":false,"message":"连接测试失败: 模型「grok-imagine-medium」在上游不存在。
+                                    可用模型：grok-4.5, grok-4.6, ...（共 23 个）"}
+错误 Key  → {"success":false,"message":"连接测试失败: 客户端 API Key 无效"}
+```
+
+→ 计划文档 §附录 C 里配错的 `grok-imagine-medium`，现在会在**测试连接阶段**就被拦下。
+
+### 6.6 唯一未通过项：账号额度/渠道限制（非适配缺陷）
+
+`带参考图分镜图` 未通过，原因是账号状态，有两条独立证据：
+
+1. **审计表证明请求形状正确**。数据库 `request_audits` 记录该请求被正确路由：
+   ```
+   {"model_public_id":"grok-imagine-image","provider":"grok_console","operation":"image_edit",
+    "status_code":503,"error_code":"upstream_quota_exhausted",
+    "media_input_images":1,"request_path":"/v1/images/edits"}
+   ```
+   `media_input_images=1` 说明上游**接受并识别了参考图**，失败在账号额度而非请求格式。
+
+2. **额度窗口实测为 0**。管理 API 显示 Console 账号的图片/视频额度窗口为空：
+   ```
+   console        remaining=10/10  window=86400s   ← 聊天额度正常
+   console_image  remaining=0/0    window=0s       ← 图片额度不可用
+   console_video  remaining=0/0    window=0s       ← 视频额度不可用
+   ```
+
+3. **同样的 curl 请求时好时坏**。同一个 `edit_body2.json`，先是 HTTP 200 成功出图，
+   随后重放返回 `429 上游账号正在冷却` / `503 当前没有可用的上游账号`——
+   若是请求格式问题，不会出现这种时变行为。
+
+**一个可操作的实测发现**：图片编辑能力按模型分流到不同渠道，这决定了号池要求：
+
+| 模型 | image_edit 路由到的渠道 | 本机号池可用性 |
+|---|---|---|
+| `grok-imagine-image-edit` | **Web** | ✅ 可用（实测 200 出图） |
+| `grok-imagine-image` | Console | ❌ Console 图片额度为 0 |
+| `grok-imagine-image-quality` | Console | ❌ 同上 |
+| `grok-imagine-image-2.0` | Console | ❌ 同上 |
+
+→ **如果号池只有 Web 账号，图片编辑应配 `grok-imagine-image-edit`**；
+用 `grok-imagine-image` 做图生图则必须有可用的 Console 图片额度。
+这一条已补进契约文档与 `docs/configuration.md`。
+
+### 6.7 仍未覆盖
+
+1. **图生视频（首帧）未在真实上游跑通**：同样受账号冷却/Console 视频额度 `0/0` 阻塞。
+   提交请求形状已由模拟服务与单元测试覆盖，但真实出片未验证。
+2. **多图参考视频未在真实上游跑通**：同上。
+3. **`duration` 的离散可用值未实测**：只验证了 `6` 秒可用。
+4. **完整成片链路（建项目→故事→角色→分镜→视频→合并）未在界面走通**：
+   各环节的接口已在真实上游逐个验证，但未串联跑完整流程。
+5. **Electron 打包版未重新打包**：改动只在源码模式验证。
 6. **`better-sqlite3` 版本未固化**：本机因 Node 24 无 v11 预编译包而临时升到 v12，
    但 `package.json` 仍声明 `^11.6.0`。若团队统一用 Node 20/22，应保持 v11；
    若统一用 Node 24，建议把依赖显式升到 `^12`。
+7. **管理凭据的存放**：本次为取回客户端 Key，读取了容器挂载的 `config.yaml`
+   （含 `bootstrapAdmin` 明文密码）并调用了管理 API。该密码明文存放于配置文件，
+   建议改为环境变量注入，并在首次登录后按官方注释删除 `bootstrapAdmin` 段。
+

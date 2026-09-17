@@ -232,6 +232,21 @@ grok2api 是一个把 Grok Web / Console 账号池转成 OpenAI 兼容接口的�
 - **Web 号池不支持图生视频**：图生视频（首帧）与参考图需要 Console 账号，
   否则上游会报「Grok Web 当前仅支持文本生视频」。
 
+### 图片编辑（图生图）该选哪个模型
+
+图片编辑能力按模型分流到不同渠道，这决定了你的号池能否支持：
+
+| 模型 | 编辑能力路由到 | 说明 |
+|---|---|---|
+| `grok-imagine-image-edit` | **Web** | 只有 Web 账号也能用 |
+| `grok-imagine-image` | Console | 需要 Console 图片额度 |
+| `grok-imagine-image-quality` | Console | 需要 Console 图片额度 |
+| `grok-imagine-image-2.0` | Console | 需要 Console 图片额度 |
+
+> **实测经验**：如果号池里只有 Web 账号（或 Console 图片额度为 0），
+> 带参考图的图生图会返回 `503 当前没有可用的上游账号` 或 `429 上游账号额度等待恢复`。
+> 此时把分镜图配置的模型换成 **`grok-imagine-image-edit`** 即可走通。
+
 > 完整的上游契约（含 `file:line` 依据）见仓库 `docs/grok2api-contract.md`。
 
 ---
