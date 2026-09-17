@@ -27,6 +27,10 @@
                 <el-icon><MagicStick /></el-icon>
                 一键配置 Agnes
               </el-button>
+              <el-button type="success" plain @click="openOneKeyGrok2Api">
+                <el-icon><MagicStick /></el-icon>
+                一键配置 grok2api
+              </el-button>
               <el-button type="info" plain @click="openOneKeyTongyi">
                 <el-icon><MagicStick /></el-icon>
                 一键配置通义
@@ -1002,6 +1006,66 @@ input_reference = (图片文件，可选)</pre>
       </template>
     </el-dialog>
 
+    <!-- 一键配置 grok2api -->
+    <el-dialog
+      v-model="oneKeyGrok2ApiVisible"
+      title="一键配置 grok2api"
+      width="560px"
+      :close-on-click-modal="false"
+      @closed="oneKeyGrok2ApiKey = ''"
+    >
+      <div class="one-key-help">
+        <div class="one-key-section">
+          <div class="one-key-section-title">📋 将自动创建以下配置</div>
+          <ul class="one-key-list">
+            <li><b>文本/对话</b>：grok-4.5 / grok-4.3 — 生成故事剧本</li>
+            <li><b>文本生成图片</b>：grok-imagine-image — 角色/场景/道具图</li>
+            <li><b>分镜图片生成</b>：grok-imagine-image — 带参考图走 /images/edits</li>
+            <li><b>视频生成</b>：grok-imagine-video / -1.5</li>
+            <li><b>语音合成</b>：grok-voice-latest</li>
+          </ul>
+        </div>
+        <div class="one-key-section">
+          <div class="one-key-section-title">⚠️ 使用须知</div>
+          <ul class="one-key-list">
+            <li>需先在本地部署好 grok2api，并导入可用账号</li>
+            <li>图生视频（首帧）与参考图需要 <b>Console 账号</b>；Web 号池仅支持文生视频</li>
+            <li>参考图最多 7 张（视频）/ 3 张（图片编辑），超出会被自动截断</li>
+          </ul>
+          <p class="one-key-note">💡 契约与限制详见仓库 <code>docs/grok2api-contract.md</code></p>
+        </div>
+      </div>
+      <el-form label-width="0" style="margin-top: 8px">
+        <el-form-item>
+          <el-input
+            v-model="oneKeyGrok2ApiBaseUrl"
+            placeholder="grok2api 地址，如 http://127.0.0.1:8000"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-input
+            v-model="oneKeyGrok2ApiKey"
+            type="password"
+            placeholder="请输入 grok2api API Key（g2a_ 开头）"
+            show-password-on="click"
+            clearable
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="oneKeyGrok2ApiVisible = false">取消</el-button>
+        <el-button
+          type="success"
+          :loading="oneKeyGrok2ApiSaving"
+          :disabled="!oneKeyGrok2ApiKey.trim() || !oneKeyGrok2ApiBaseUrl.trim()"
+          @click="submitOneKeyGrok2Api"
+        >
+          确定，一键创建配置
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 即梦2角色认证：素材列表 -->
     <el-dialog
       v-model="jimeng2AssetsDialogVisible"
@@ -1292,6 +1356,11 @@ const oneKeyVolcSaving = ref(false)
 const oneKeyAgnesVisible = ref(false)
 const oneKeyAgnesKey = ref('')
 const oneKeyAgnesSaving = ref(false)
+// grok2api：需要 base_url（本地部署地址），与只填 key 的预设不同
+const oneKeyGrok2ApiVisible = ref(false)
+const oneKeyGrok2ApiKey = ref('')
+const oneKeyGrok2ApiBaseUrl = ref('http://127.0.0.1:8000')
+const oneKeyGrok2ApiSaving = ref(false)
 
 /** 预设厂商与模型（与参考前端一致） */
 const providerConfigs = {
@@ -1705,6 +1774,16 @@ const AGNES_CONFIGS = [
   { service_type: 'video', name: 'Agnes 视频', base_url: 'https://apihub.agnes-ai.com/v1', provider: 'agnes', api_protocol: 'agnes', endpoint: '/videos', query_endpoint: '/agnesapi', model: ['agnes-video-2.5-flash', 'agnes-video-2.5', 'agnes-video-v2.0'] },
 ]
 
+/** grok2api 一键配置用（契约见 docs/grok2api-contract.md）
+ *  base_url 需用户填写自己部署的地址（默认 http://127.0.0.1:8000），故不在预设里写死。 */
+const GROK2API_CONFIGS = [
+  { service_type: 'text', name: 'grok2api 文本', provider: 'grok2api', api_protocol: 'openai', endpoint: '/v1/chat/completions', model: ['grok-4.5', 'grok-4.3'] },
+  { service_type: 'image', name: 'grok2api 文本生图', provider: 'grok2api', api_protocol: 'grok2api', endpoint: '/v1/images/generations', model: ['grok-imagine-image', 'grok-imagine-image-2.0', 'grok-imagine-image-quality'] },
+  { service_type: 'storyboard_image', name: 'grok2api 分镜图', provider: 'grok2api', api_protocol: 'grok2api', endpoint: '/v1/images/generations', model: ['grok-imagine-image', 'grok-imagine-image-2.0'] },
+  { service_type: 'video', name: 'grok2api 视频', provider: 'grok2api', api_protocol: 'grok2api', endpoint: '/v1/videos/generations', query_endpoint: '/v1/videos/{taskId}', model: ['grok-imagine-video', 'grok-imagine-video-1.5'] },
+  { service_type: 'tts', name: 'grok2api 语音合成', provider: 'grok2api', api_protocol: 'openai', endpoint: '/v1/audio/speech', model: ['grok-voice-latest', 'grok-voice-think-fast-2.0'] },
+]
+
 function serviceTypeLabel(t) {
   const map = {
     text: '文本',
@@ -2111,6 +2190,45 @@ async function submitOneKeyVolc() {
 function openOneKeyAgnes() {
   oneKeyAgnesKey.value = ''
   oneKeyAgnesVisible.value = true
+}
+
+function openOneKeyGrok2Api() {
+  oneKeyGrok2ApiKey.value = ''
+  oneKeyGrok2ApiBaseUrl.value = 'http://127.0.0.1:8000'
+  oneKeyGrok2ApiVisible.value = true
+}
+
+async function submitOneKeyGrok2Api() {
+  const apiKey = oneKeyGrok2ApiKey.value.trim()
+  const baseUrl = oneKeyGrok2ApiBaseUrl.value.trim().replace(/\/+$/, '')
+  if (!apiKey || !baseUrl) return
+  oneKeyGrok2ApiSaving.value = true
+  try {
+    for (const cfg of GROK2API_CONFIGS) {
+      const models = cfg.model || []
+      await aiAPI.create({
+        service_type: cfg.service_type,
+        name: cfg.name,
+        provider: cfg.provider,
+        api_protocol: cfg.api_protocol || '',
+        base_url: baseUrl,
+        api_key: apiKey,
+        model: models,
+        default_model: models[0] || null,
+        endpoint: cfg.endpoint || '',
+        query_endpoint: cfg.query_endpoint || '',
+        priority: 10,
+        is_default: true
+      })
+    }
+    ElMessage.success('已创建 grok2api 文本、文本生图、分镜图、视频、语音配置')
+    oneKeyGrok2ApiVisible.value = false
+    await loadList()
+  } catch (_) {
+    // 错误已由 request 统一提示
+  } finally {
+    oneKeyGrok2ApiSaving.value = false
+  }
 }
 
 async function submitOneKeyAgnes() {

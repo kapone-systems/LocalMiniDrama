@@ -187,12 +187,62 @@ API Key：your-api-key
 
 ---
 
+## grok2api（本地 Grok 网关）
+
+grok2api 是一个把 Grok Web / Console 账号池转成 OpenAI 兼容接口的网关。
+本地部署好并导入账号后，LMD 可以直接接入，获得文本、图片、视频、TTS 全套能力。
+
+### 配置示例
+
+假设 grok2api 跑在 `http://127.0.0.1:8000`：
+
+| 服务类型 | base_url | 模型 | endpoint | query_endpoint |
+|---|---|---|---|---|
+| 文本 | `http://127.0.0.1:8000` | `grok-4.5` | `/v1/chat/completions` | — |
+| 文本生成图片 | `http://127.0.0.1:8000` | `grok-imagine-image` | `/v1/images/generations` | — |
+| 分镜图片生成 | `http://127.0.0.1:8000` | `grok-imagine-image` | `/v1/images/generations` | — |
+| 视频 | `http://127.0.0.1:8000` | `grok-imagine-video` | `/v1/videos/generations` | `/v1/videos/{taskId}` |
+| 语音合成 | `http://127.0.0.1:8000` | `grok-voice-latest` | `/v1/audio/speech` | — |
+
+> **`api_protocol` 建议显式填 `grok2api`**（图片与视频）。不填也能用——
+> 模型名以 `grok-imagine-` 开头时会自动识别；但显式填写更稳妥。
+
+也可以直接用「一键配置 grok2api」按钮，或导入 `各大平台中转站配置/grok2api.json`。
+
+### 可用模型
+
+| 类别 | 模型 ID |
+|---|---|
+| 文本 | `grok-4.5`、`grok-4.3`、`grok-4.20-*`、`grok-build-0.1` |
+| 图片 | `grok-imagine-image`、`grok-imagine-image-quality`、`grok-imagine-image-2.0` |
+| 视频 | `grok-imagine-video`、`grok-imagine-video-1.5` |
+| 语音 | `grok-voice-latest`、`grok-voice-think-fast-2.0`、`grok-voice-think-fast-1.0` |
+
+### 已知限制（LMD 已自动处理）
+
+- **`quality` 参数只对 `grok-imagine-image-2.0` 有效**，其他图片模型传了会直接报错。
+  LMD 默认不发 `quality`。
+- **图片画幅用 `aspect_ratio` 而不是像素 `size`**。LMD 会把内部的 `2560x1440` 等尺寸自动映射为
+  `16:9` 等比例；`21:9` 上游不支持，回退为 `16:9`。
+- **带参考图的图生图走 `/v1/images/edits`**，参考图上限 **3 张**（超出自动截断）。
+- **视频参考图上限 7 张**；`grok-imagine-video` 带参考图时 `duration` 上限 **10 秒**。
+- **首帧（`image`）与参考图（`reference_images`）互斥**。两者同时提供时 LMD 保留首帧、丢弃参考图并写告警日志。
+- **上游不支持尾帧**，LMD 会忽略尾帧并写告警日志。
+- **`1080p` 仅 `grok-imagine-video-1.5` 支持**，且参考图模式最高 `720p`。
+- **Web 号池不支持图生视频**：图生视频（首帧）与参考图需要 Console 账号，
+  否则上游会报「Grok Web 当前仅支持文本生视频」。
+
+> 完整的上游契约（含 `file:line` 依据）见仓库 `docs/grok2api-contract.md`。
+
+---
+
 ## 一键配置功能
 
 在「AI 配置」页面，点击顶部的：
 - **「一键配置通义」** — 自动创建阿里云 DashScope 的文本/图片/视频三套配置模板
 - **「一键配置火山」** — 自动创建火山引擎的文本/图片/视频三套配置模板
 - **「一键配置 Agnes」**（v1.2.8+）— 自动创建 Agnes AI 的文本/图片/视频三套配置模板（`agnes-2.0-flash` / `agnes-image-2.1-flash` / `agnes-video-v2.0`）
+- **「一键配置 grok2api」** — 自动创建 grok2api 的文本/图片/分镜图/视频/语音五套配置模板（需填 grok2api 地址与 Key）
 
 一键配置后，只需填入你的 API Key，其他参数已预填好，点击「保存」即可使用。
 

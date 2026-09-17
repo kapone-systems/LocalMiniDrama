@@ -139,6 +139,21 @@ describe('buildGrok2ApiImageUrl', () => {
     assert.equal(buildGrok2ApiImageUrl(config, false), 'http://127.0.0.1:8000/v1/images/generations');
   });
 
+  it('derives the edits path from the configured generations endpoint (keeps the /v1 prefix)', () => {
+    // 回归：base_url 不含 /v1 而 endpoint 含 /v1 时，edits 不能退化成 /images/edits
+    const config = { base_url: 'http://127.0.0.1:8000', endpoint: '/v1/images/generations' };
+    assert.equal(buildGrok2ApiImageUrl(config, true), 'http://127.0.0.1:8000/v1/images/edits');
+  });
+
+  it('prefers an explicit edit_endpoint', () => {
+    const config = {
+      base_url: 'http://127.0.0.1:8000',
+      endpoint: '/v1/images/generations',
+      edit_endpoint: '/v1/images/edits',
+    };
+    assert.equal(buildGrok2ApiImageUrl(config, true), 'http://127.0.0.1:8000/v1/images/edits');
+  });
+
   it('strips a trailing slash on base_url', () => {
     const config = { base_url: 'http://127.0.0.1:8000/v1/' };
     assert.equal(buildGrok2ApiImageUrl(config, false), 'http://127.0.0.1:8000/v1/images/generations');

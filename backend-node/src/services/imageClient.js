@@ -183,14 +183,28 @@ function isGrok2ApiImageProtocol(apiProtocol, provider, model, baseUrl) {
   return true;
 }
 
-/** grok2api 图片接口地址：base_url 通常已含 /v1（与 openai 协议一致），故默认端点不带 /v1 前缀 */
+/**
+ * grok2api 图片接口地址。
+ * base_url 可能已含 /v1（LMD 惯例），也可能不含；`endpoint` 通常写全路径（如 /v1/images/generations）。
+ * edits 路径优先取显式 edit_endpoint；否则从配置的 generations endpoint 推导同前缀的 /images/edits
+ * ——否则在 base_url 不含 /v1 而 endpoint 含 /v1 时会丢掉前缀，打到错误的 /images/edits。
+ */
 function buildGrok2ApiImageUrl(config, useEdit) {
   const base = (config.base_url || '').replace(/\/$/, '');
-  const configured = useEdit ? (config.edit_endpoint || config.editEndpoint) : config.endpoint;
-  const fallback = useEdit ? '/images/edits' : '/images/generations';
-  let ep = String(configured || fallback).trim() || fallback;
-  if (!ep.startsWith('/')) ep = '/' + ep;
-  return base + ep;
+  const normalize = (v, fallback) => {
+    const s = String(v || '').trim() || fallback;
+    return s.startsWith('/') ? s : '/' + s;
+  };
+  if (!useEdit) {
+    return base + normalize(config.endpoint, '/images/generations');
+  }
+  const explicitEdit = config.edit_endpoint || config.editEndpoint;
+  if (explicitEdit) return base + normalize(explicitEdit, '/images/edits');
+
+  // 从 generations endpoint 推导前缀，保证 /v1 之类的版本段不丢
+  const gen = normalize(config.endpoint, '/images/generations');
+  const derived = gen.replace(/\/images\/generations\/?$/i, '/images/edits');
+  return base + (derived === gen ? '/images/edits' : derived);
 }
 
 /**

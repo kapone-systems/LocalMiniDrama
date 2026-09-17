@@ -1,0 +1,98 @@
+[
+  {
+    "service_type": "text",
+    "provider": "grok2api",
+    "api_protocol": "openai",
+    "name": "grok2api 文本",
+    "base_url": "http://127.0.0.1:8000",
+    "api_key": "g2a_1234",
+    "model": [
+      "grok-4.5",
+      "grok-4.3"
+    ],
+    "default_model": "grok-4.5",
+    "endpoint": "/v1/chat/completions",
+    "query_endpoint": "",
+    "priority": 0,
+    "is_default": true,
+    "is_active": true,
+    "settings": null
+  },
+  {
+    "service_type": "image",
+    "provider": "grok2api",
+    "api_protocol": "grok2api",
+    "name": "grok2api 文本生图",
+    "base_url": "http://127.0.0.1:8000",
+    "api_key": "g2a_1234",
+    "model": [
+      "grok-imagine-image",
+      "grok-imagine-image-2.0",
+      "grok-imagine-image-quality"
+    ],
+    "default_model": "grok-imagine-image",
+    "endpoint": "/v1/images/generations",
+    "query_endpoint": "",
+    "priority": 0,
+    "is_default": true,
+    "is_active": true,
+    "settings": null
+  },
+  {
+    "service_type": "storyboard_image",
+    "provider": "grok2api",
+    "api_protocol": "grok2api",
+    "name": "grok2api 分镜图",
+    "base_url": "http://127.0.0.1:8000",
+    "api_key": "g2a_1234",
+    "model": [
+      "grok-imagine-image",
+      "grok-imagine-image-2.0"
+    ],
+    "default_model": "grok-imagine-image",
+    "endpoint": "/v1/images/generations",
+    "query_endpoint": "",
+    "priority": 0,
+    "is_default": true,
+    "is_active": true,
+    "settings": null
+  },
+  {
+    "service_type": "video",
+    "provider": "grok2api",
+    "api_protocol": "grok2api",
+    "name": "grok2api 视频",
+    "base_url": "http://127.0.0.1:8000",
+    "api_key": "g2a_1234",
+    "model": [
+      "grok-imagine-video",
+      "grok-imagine-video-1.5"
+    ],
+    "default_model": "grok-imagine-video",
+    "endpoint": "/v1/videos/generations",
+    "query_endpoint": "/v1/videos/{taskId}",
+    "priority": 0,
+    "is_default": true,
+    "is_active": true,
+    "settings": null
+  },
+  {
+    "service_type": "tts",
+    "provider": "grok2api",
+    "api_protocol": "openai",
+    "name": "grok2api 语音合成",
+    "base_url": "http://127.0.0.1:8000",
+    "api_key": "g2a_1234",
+    "model": [
+      "grok-voice-latest",
+      "grok-voice-think-fast-2.0"
+    ],
+    "default_model": "grok-voice-latest",
+    "endpoint": "/v1/audio/speech",
+    "query_endpoint": "",
+    "priority": 0,
+    "is_default": true,
+    "is_active": true,
+    "settings": null
+  }
+]
