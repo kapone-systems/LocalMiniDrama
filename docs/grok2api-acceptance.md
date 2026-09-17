@@ -427,7 +427,7 @@ PASS  文生视频轮询拿到真实 video.url  — http://127.0.0.1:8000/v1/med
 | 3. 提取角色 | `POST /generation/characters` | ✅ 3 个（林晚、陈默、林晓） |
 | 4. 生成角色图 | `POST /characters/:id/generate-image` | ✅ 3/3 张 |
 | 5. 生成分镜 | `POST /episodes/1/storyboards` | ✅ 10 个分镜 |
-| 6. 生成分镜图 | `POST /images` | ⚠️ 3/10（受 Web 限流，见 6.9） |
+| 6. 生成分镜图 | `POST /images` | ✅ 10/10 |
 | 7. 生成视频 | `POST /videos` | ✅ 3/3 个 |
 | 8. 合并成片 | `POST /episodes/1/finalize` | ✅ 24 秒成片 |
 
@@ -439,6 +439,15 @@ $ ffmpeg -i data/storage/projects/*/videos/merged/merged_1789671649590.mp4
 ```
 文件 22.2MB，由 3 个真实生成的分镜视频（各 6 秒）合并而成，
 剧集状态随之变为 `completed`。
+
+**最终产物清单**（均为磁盘上的真实文件）：
+
+| 类别 | 数量 | 验证方式 |
+|---|---|---|
+| 角色图 | 3/3 | `characters.image_url` 全部非空 |
+| 分镜图 | 10/10 | 10 个 `ig_*.jpg`（417KB–840KB），`image_generations.status='completed'` |
+| 分镜视频 | 3/3 | `video_generations.status='completed'`，均可下载 |
+| 成片 | 1 | 22.2MB MP4，24.15s / 2560x1440 / h264 / 24fps |
 
 **角色图生成的关键日志**（证明 grok2api 协议分支按预期工作）：
 ```
@@ -456,39 +465,49 @@ $ ffmpeg -i data/storage/projects/*/videos/merged/merged_1789671649590.mp4
                     "has_ref_images":true,"ref_count":1,"quality":"(omitted)"}
 ```
 
-### 6.9 分镜图 3/10：Web 账号限流（外部资源限制）
+### 6.9 分镜图 10/10：Web 账号突发限流（外部资源限制）
 
-分镜图仅完成 3/10，其余失败于 `429 上游账号正在冷却` / `503 当前没有可用的上游账号`。
-判定为账号侧限制，依据是上游审计表——**同一时间段内图片全渠道失败、视频全成功**：
+分镜图最终 **10/10 全部完成**，但过程充分暴露了 Web 账号的突发限流：
+
+| 观测 | 数值 |
+|---|---|
+| 每个冷却窗口能出的图片数 | 约 3 张 |
+| 冷却时长变化 | 30 → 32 → 34 → 29 → 28 → 30 分钟（上游逐次调整） |
+| `failureCount` 变化 | 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 |
+| 冷却窗口结束瞬间提交 | 立即成功 |
+| 周配额 | 始终 9900/10000（**不是配额耗尽，是速率限制**） |
+
+失败时的错误码（来自上游审计表）：
 
 ```
-provider       operation    status  error_code                 n
-grok_web       image        503     upstream_cooling           3
-grok_web       image_edit   503     upstream_cooling           1
-grok_web       image_edit   503     upstream_unavailable       2
-grok_console   image        503     upstream_quota_exhausted   1
-grok_build     video        200     (成功)                     4
+provider       operation    status  error_code
+grok_web       image        503     upstream_cooling
+grok_web       image_edit   503     upstream_unavailable
+grok_console   image        503     upstream_quota_exhausted
+grok_build     video        200     (成功)
 ```
 
-Web 账号 `failureCount` 从 6 涨到 8，冷却时间被上游逐次延长（19:08 → 19:38 → 20:10）。
-在冷却窗口结束的瞬间重试即成功（第 4 次尝试生成出第 1 张分镜图），
-之后连续请求又迅速触发限流——典型的**上游速率限制**特征，与请求格式无关。
+**同一时间窗口内图片全渠道失败、Build 视频全部成功**——这排除了适配代码问题。
 
-> 结论：分镜图这一步**代码路径已验证可用**（3 张真实出图 + 日志显示正确路由到
-> `/images/edits` 并带 1 张参考图），未完成的部分纯粹是号池配额不足。
+> 一条实用经验：**不要在窗口开启后先发探测请求**。探测会消耗掉窗口额度，
+> 导致真正要生成的图失败。第 10 张最终是「等窗口过期后直接提交、不预探测」才成功的。
+
+**实践建议**：生产环境若遇同类限流，可为号池补充 Console 图片额度以分流，
+或把分镜图模型换成 `grok-imagine-image-edit`（走 Web，与出图同渠道）。
 
 ### 6.10 仍未覆盖
 
-1. **分镜图未跑满 10/10**：受 Web 账号限流，完成 3 张。需等待配额恢复后补跑。
-2. **`duration` 的离散可用值未实测**：只验证了 `6` 秒可用（文生/图生/参考视频均通过）。
-3. **Electron 打包版未重新打包**：改动只在源码模式验证。
-4. **`better-sqlite3` 版本未固化**：本机因 Node 24 无 v11 预编译包而临时升到 v12，
+1. **`duration` 的离散可用值未实测**：只验证了 `6` 秒可用（文生/图生/参考视频均通过）。
+2. **Electron 打包版未重新打包**：改动只在源码模式验证。
+3. **`better-sqlite3` 版本未固化**：本机因 Node 24 无 v11 预编译包而临时升到 v12，
    但 `package.json` 仍声明 `^11.6.0`。若团队统一用 Node 20/22，应保持 v11；
    若统一用 Node 24，建议把依赖显式升到 `^12`。
-5. **管理凭据的存放**：本次为取回客户端 Key，读取了容器挂载的 `config.yaml`
+4. **管理凭据的存放**：本次为取回客户端 Key，读取了容器挂载的 `config.yaml`
    （含 `bootstrapAdmin` 明文密码）并调用了管理 API。该密码明文存放于配置文件，
    建议改为环境变量注入，并在首次登录后按官方注释删除 `bootstrapAdmin` 段。
-6. **界面级操作**：本次通过 LMD 的 HTTP API 走通全链路（与前端调用的是同一批接口），
+5. **界面级操作**：本次通过 LMD 的 HTTP API 走通全链路（与前端调用的是同一批接口），
    未在浏览器里逐一点击。接口层已验证，UI 层未做人工点击验收。
+
+
 
 
