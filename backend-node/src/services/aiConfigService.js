@@ -244,6 +244,22 @@ function rowToConfig(r) {
 }
 
 /**
+ * 是否为 grok2api 连接（用于选择更准确的试连策略）。
+ * 判据：provider 显式声明 grok2api，或模型名是 grok-imagine-* / grok-voice-* / grok-stt
+ * 这类只存在于 grok2api 的 ID，或 base_url 指向本机 grok2api 端口。
+ */
+function isGrok2ApiConnection(opts) {
+  const baseUrl = String(opts.base_url || '');
+  // 官方 xAI 直连不走 grok2api 的模型清单（其模型 ID 与 grok2api 的 public ID 不同）
+  if (/api\.x\.ai(\/|$)/i.test(baseUrl)) return false;
+  if (String(opts.provider || '').trim().toLowerCase() === 'grok2api') return true;
+  if (String(opts.api_protocol || '').trim().toLowerCase() === 'grok2api') return true;
+  const models = Array.isArray(opts.model) ? opts.model : (opts.model != null ? [opts.model] : []);
+  if (models.some((m) => /^(grok-imagine-|grok-voice-|grok-stt$|grok-\d)/i.test(String(m || '').trim()))) return true;
+  return false;
+}
+
+/**
  * 测试连接：与 Go AIService.TestConnection 对齐，根据 provider 发最小请求验证 base_url + api_key
  * @param opts { base_url, api_key, model (string|string[]), provider?, endpoint?, settings? }
  * @returns Promise<void> 成功 resolve，失败 reject(error)
@@ -258,6 +274,46 @@ async function testConnection(opts) {
   const provider = (opts.provider || 'openai').toLowerCase();
   const serviceType = (opts.service_type || '').toLowerCase();
   let endpoint = opts.endpoint || '';
+
+  // --- grok2api ---
+  // 图片/视频服务的生成接口代价高（且会真实扣额度），不适合拿来试连；但 grok2api 提供
+  // GET /v1/models，能同时验证 key 有效性和「模型是否真的存在」——后者正是过去
+  // 「测试连接成功但实际生成 400」的根因（配置里写了不存在的 grok-imagine-medium）。
+  // 契约见 docs/grok2api-contract.md §2、§3。
+  if (isGrok2ApiConnection(opts)) {
+    // base_url 可能已含 /v1（LMD 惯例），也可能不含（附录 C 的推荐写法），两种都兼容
+    const modelsUrl = /\/v1$/i.test(base) ? base + '/models' : base + '/v1/models';
+    let res;
+    try {
+      res = await fetch(modelsUrl, {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + (opts.api_key || '') },
+      });
+    } catch (e) {
+      throw new Error('无法连接 grok2api（' + modelsUrl + '）: ' + e.message);
+    }
+    if (res.status === 401 || res.status === 403) {
+      const text = await res.text();
+      let errMsg = `API Key 无效 (${res.status})`;
+      try { const j = JSON.parse(text); errMsg = j.error?.message || j.message || errMsg; } catch {}
+      throw new Error(errMsg);
+    }
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`grok2api 模型列表请求失败: ${res.status} ${text.slice(0, 200)}`);
+    }
+    const data = await res.json().catch(() => null);
+    const available = Array.isArray(data?.data)
+      ? data.data.map((m) => m?.id).filter((id) => typeof id === 'string' && id)
+      : [];
+    if (model && available.length > 0 && !available.includes(model)) {
+      throw new Error(
+        `模型「${model}」在上游不存在。可用模型：${available.slice(0, 20).join(', ')}`
+        + (available.length > 20 ? ` …（共 ${available.length} 个）` : '')
+      );
+    }
+    return;
+  }
 
   // --- NanoBanana ---
   if (provider === 'nano_banana') {
@@ -576,6 +632,7 @@ module.exports = {
   updateConfig,
   deleteConfig,
   testConnection,
+  isGrok2ApiConnection,
   getVendorLockStatus,
   applyVendorLock,
   bulkUpdateApiKey,
