@@ -31,6 +31,7 @@ function inferVideoProtocol(provider) {
   if (p === 'kling' || p === 'klingai') return 'kling';
   if (p === 'jimeng_ai_api') return 'jimeng_ai_api';
   if (p === 'xai' || p === 'grok') return 'xai';
+  if (p === 'grok2api') return 'grok2api';
   if (p === 'agnes') return 'agnes';
   if (p === 'minimax_h3') return 'minimax_h3';
   return 'openai';
@@ -62,6 +63,15 @@ function resolveVideoProtocol(config, modelHint) {
     if (/api\.x\.ai(\/|$)/.test(baseLower)) protocol = 'xai';
     else if (/grok-imagine|grok.*video/.test(modelLower)) protocol = 'xai';
     else if (provider === 'agnes' || /agnes-video|apihub\.agnes-ai\.com/i.test(baseLower)) protocol = 'agnes';
+  }
+  // api_protocol 为空或泛化的 openai，模型为 grok-imagine-* 且非官方 xAI 端点 → grok2api。
+  // grok2api 的 grok-imagine 契约与 xai 分支形似但有硬差异：接口校验未知字段（多传即 400）、
+  // 参考图 ≤7、grok-imagine-video 带参考图时 duration ≤10、参考图模式 ≤720p。
+  // 这些钳制只有独立协议分支能做，所以 grok-imagine-* 优先走 grok2api。
+  if ((!explicit || protocol === 'openai')
+    && /^grok-imagine-/i.test(String(modelCand || '').trim())
+    && !/api\.x\.ai(\/|$)/.test(baseLower)) {
+    protocol = 'grok2api';
   }
   if ((!explicit || protocol === 'openai') && (provider === 'minimax_h3' || isMinimaxH3Model(modelCand))) {
     protocol = 'minimax_h3';
@@ -1072,6 +1082,7 @@ function buildQueryUrl(config, taskId, extras = {}) {
   let defaultEp;
   if (isSora) defaultEp = '/v1/videos/{taskId}';
   else if (proto === 'xai') defaultEp = '/v1/videos/{taskId}';
+  else if (proto === 'grok2api') defaultEp = '/v1/videos/{taskId}';
   else if (proto === 'veo3') defaultEp = '/v1/video/query?id={taskId}';
   else if (isDashScope) defaultEp = '/api/v1/tasks/{taskId}';
   else if (proto === 'volcengine_omni') defaultEp = '/v1/videos/generations/async/{taskId}';
@@ -3247,6 +3258,207 @@ function mergeXaiVideoImageUrls(imageUrlForApi, resolvedRefStrings, max = 10) {
   return images.slice(0, max);
 }
 
+// ── grok2api 视频协议 ─────────────────────────────────────────────────────────
+// 上游契约见 docs/grok2api-contract.md §5（grok2api v3.1.6）。与 xai 分支的关键差异：
+//   1. 接口对未知字段 DisallowUnknownFields —— 多传字段直接 400，body 必须精确；
+//   2. image（首帧）与 reference_images 互斥（handler.go:824）；
+//   3. reference_images ≤ 7 张（provider.go:549）；
+//   4. grok-imagine-video + 参考图时 duration ≤ 10s（gateway/video.go:253）；
+//   5. 1080p 仅 grok-imagine-video-1.5 支持，且参考图模式最高 720p（gateway/video.go:259-265）；
+//   6. aspect_ratio 白名单不含 21:9（handler.go:1053-1059）。
+/** Console 视频参考图上限（provider.go:549） */
+const GROK2API_MAX_VIDEO_REFS = 7;
+/** grok-imagine-video 带参考图时的 duration 上限（gateway/video.go:253） */
+const GROK2API_MAX_REF_DURATION = 10;
+/** 视频接口的 aspect_ratio 白名单（handler.go:1053-1059） */
+const GROK2API_VIDEO_ASPECT_RATIOS = new Set(['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3']);
+
+/** 视频 duration 钳制：上游接受 1–15（handler.go:1015-1030） */
+function clampGrok2ApiDuration(d) {
+  const n = Math.round(Number(d));
+  if (!Number.isFinite(n) || n < 1) return 8;
+  return Math.min(15, Math.max(1, n));
+}
+
+/** grok2api 视频比例：白名单外（含 21:9）一律回退 16:9 */
+function normalizeGrok2ApiVideoAspectRatio(raw) {
+  const s = String(raw || '').trim().replace(/\uFF1A/g, ':').replace(/[×xX*]/g, ':');
+  if (GROK2API_VIDEO_ASPECT_RATIOS.has(s)) return s;
+  const aliases = { portrait: '9:16', landscape: '16:9', square: '1:1', vertical: '9:16', horizontal: '16:9' };
+  const alias = aliases[s.toLowerCase()];
+  return alias || '16:9';
+}
+
+/**
+ * grok2api 视频 resolution 钳制。
+ * 1080p 仅 grok-imagine-video-1.5 支持；参考图模式最高 720p（此时 1080p 直接降级）。
+ */
+function normalizeGrok2ApiVideoResolution(resolution, modelName, hasReferences) {
+  const raw = String(resolution || '').trim().toLowerCase();
+  const is15 = String(modelName || '').trim() === 'grok-imagine-video-1.5';
+  let value;
+  if (raw.includes('480')) value = '480p';
+  else if (raw.includes('1080')) value = '1080p';
+  else if (raw.includes('720')) value = '720p';
+  else value = '720p';
+  if (value === '1080p' && (!is15 || hasReferences)) value = '720p';
+  return value;
+}
+
+/**
+ * grok2api 视频提交 + 轮询任务创建。
+ *
+ * 图片字段二选一（上游互斥）：
+ * - 有首帧 → image: {url}
+ * - 有参考图 → reference_images: [{url}...]
+ * - 两者都有 → 优先 image（首帧对分镜连续性更重要），参考图降级并告警
+ *
+ * 尾帧上游不支持，降级为提示词描述并告警。
+ */
+async function callGrok2ApiVideo(config, log, opts) {
+  const {
+    prompt,
+    model,
+    duration,
+    aspect_ratio,
+    resolution,
+    image_url,
+    first_frame_url,
+    last_frame_url,
+    reference_urls,
+    files_base_url,
+    storage_local_path,
+    video_gen_id,
+  } = opts;
+
+  const base = (config.base_url || '').replace(/\/$/, '');
+  let ep = config.endpoint || '/v1/videos/generations';
+  if (!ep.startsWith('/')) ep = '/' + ep;
+  const url = base + ep;
+
+  const modelName = String(model || '').trim() || 'grok-imagine-video';
+  const ratio = normalizeGrok2ApiVideoAspectRatio(aspect_ratio);
+
+  // 解析首帧：本地/localhost → base64（上游原生支持 data URL）
+  const rawFirst = String(first_frame_url || image_url || '').trim();
+  const firstResolved = rawFirst
+    ? resolveVolcClassicImage(rawFirst, files_base_url, storage_local_path, log, video_gen_id, 'grok2api_first_frame')
+    : null;
+
+  // 解析参考图
+  const rawRefs = Array.isArray(reference_urls) ? reference_urls.filter(Boolean) : [];
+  const resolvedRefs = [];
+  for (let i = 0; i < rawRefs.length; i++) {
+    const u = resolveVolcClassicImage(rawRefs[i], files_base_url, storage_local_path, log, video_gen_id, `grok2api_ref_${i}`);
+    if (u) resolvedRefs.push(u);
+  }
+
+  // 上游互斥：image 与 reference_images 不能同时出现
+  let useImage = !!firstResolved;
+  let refsForApi = resolvedRefs;
+  if (useImage && refsForApi.length > 0) {
+    log.warn('[grok2api视频] 首帧与参考图互斥，已保留首帧并丢弃参考图（上游 image 不能与 reference_images 同时使用）', {
+      video_gen_id, dropped_refs: refsForApi.length,
+    });
+    refsForApi = [];
+  }
+  if (refsForApi.length > GROK2API_MAX_VIDEO_REFS) {
+    log.warn('[grok2api视频] 参考图超出上游上限，已截断', {
+      video_gen_id, requested: refsForApi.length, used: GROK2API_MAX_VIDEO_REFS,
+    });
+    refsForApi = refsForApi.slice(0, GROK2API_MAX_VIDEO_REFS);
+  }
+
+  // 尾帧：上游只有 image(首帧) + reference_images，没有尾帧概念
+  const rawLast = String(last_frame_url || '').trim();
+  if (rawLast) {
+    log.warn('[grok2api视频] 上游不支持尾帧（只有首帧 image + reference_images），已忽略尾帧', {
+      video_gen_id, last_frame_head: rawLast.slice(0, 80),
+    });
+  }
+
+  const hasReferences = refsForApi.length > 0;
+  let dur = clampGrok2ApiDuration(duration);
+  // grok-imagine-video 带参考图时上游限制 10s；1.5 无此限制
+  if (modelName === 'grok-imagine-video' && hasReferences && dur > GROK2API_MAX_REF_DURATION) {
+    log.warn('[grok2api视频] grok-imagine-video 参考图模式 duration 上限 10s，已钳制', {
+      video_gen_id, requested: dur, clamped: GROK2API_MAX_REF_DURATION,
+    });
+    dur = GROK2API_MAX_REF_DURATION;
+  }
+  const reso = normalizeGrok2ApiVideoResolution(resolution, modelName, hasReferences);
+
+  // body 字段必须精确：上游校验未知字段，多传即 400
+  const body = {
+    model: modelName,
+    prompt: prompt || '',
+    duration: dur,
+    aspect_ratio: ratio,
+    resolution: reso,
+  };
+  if (useImage) body.image = { url: firstResolved };
+  else if (hasReferences) body.reference_images = refsForApi.map((u) => ({ url: u }));
+
+  log.info('[grok2api视频] 提交', {
+    video_gen_id,
+    url,
+    model: modelName,
+    aspect_ratio: ratio,
+    duration: dur,
+    resolution: reso,
+    has_image: !!body.image,
+    ref_count: body.reference_images?.length || 0,
+    image_transport: firstResolved
+      ? (String(firstResolved).startsWith('data:') ? 'data_url' : 'http_url')
+      : 'none',
+  });
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + (config.api_key || ''),
+    },
+    body: JSON.stringify(body),
+  });
+  const raw = await res.text();
+  log.info('[grok2api视频] 响应', { video_gen_id, status: res.status, head: raw.slice(0, 500) });
+
+  if (!res.ok) {
+    let errMsg = 'grok2api 视频请求失败: ' + res.status;
+    try {
+      const errJson = JSON.parse(raw);
+      const msg = errJson.error?.message || errJson.message || errJson.error;
+      if (msg) errMsg += ' - ' + String(typeof msg === 'string' ? msg : JSON.stringify(msg)).slice(0, 220);
+    } catch (_) {
+      if (raw) errMsg += ' - ' + raw.slice(0, 200);
+    }
+    return { error: errMsg };
+  }
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    return { error: 'grok2api 视频响应非 JSON: ' + raw.slice(0, 200) };
+  }
+
+  const direct = pickProxyVideoUrl(data);
+  if (direct) {
+    log.info('[grok2api视频] 同步返回地址', { video_gen_id });
+    return { video_url: direct };
+  }
+
+  // 提交响应固定为 {"request_id": "..."}（handler.go:919）
+  const reqId = data.request_id || data.task_id || data.id;
+  if (reqId) {
+    log.info('[grok2api视频] 异步任务', { video_gen_id, request_id: reqId });
+    return { task_id: String(reqId), status: 'submitted' };
+  }
+
+  return { error: 'grok2api 未返回 request_id 或视频地址: ' + JSON.stringify(data).slice(0, 300) };
+}
+
 /**
  * xAI 视频（官方两套）：
  * - grok + video 模型：images: string[]、size（720P）、aspect_ratio、duration（中转 grok-video-3 等同此）。
@@ -3895,6 +4107,23 @@ async function callVideoApi(db, log, opts) {
     return callJimengAiApiVideo(config, log, {
       prompt,
       model: preferredModel,
+      duration: opts.duration,
+      aspect_ratio,
+      resolution: opts.resolution,
+      image_url: opts.image_url,
+      first_frame_url: opts.first_frame_url,
+      last_frame_url: opts.last_frame_url,
+      reference_urls: opts.reference_urls,
+      files_base_url: opts.files_base_url,
+      storage_local_path: opts.storage_local_path,
+      video_gen_id: opts.video_gen_id,
+    });
+  }
+
+  if (protocol === 'grok2api') {
+    return callGrok2ApiVideo(config, log, {
+      prompt,
+      model,
       duration: opts.duration,
       aspect_ratio,
       resolution: opts.resolution,
@@ -4650,4 +4879,10 @@ module.exports = {
   extractMinimaxH3VideoUrl,
   normalizeMinimaxH3Duration,
   normalizeMinimaxH3Resolution,
+  /** grok2api 视频协议（契约见 docs/grok2api-contract.md §5） */
+  callGrok2ApiVideo,
+  clampGrok2ApiDuration,
+  normalizeGrok2ApiVideoAspectRatio,
+  normalizeGrok2ApiVideoResolution,
+  buildQueryUrl,
 };
