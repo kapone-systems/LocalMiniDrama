@@ -372,19 +372,123 @@ PASS  文生视频轮询拿到真实 video.url  — http://127.0.0.1:8000/v1/med
 用 `grok-imagine-image` 做图生图则必须有可用的 Console 图片额度。
 这一条已补进契约文档与 `docs/configuration.md`。
 
-### 6.7 仍未覆盖
+视频侧同理，且**这条在第三轮直接解决了图生视频的阻塞**（见 6.7）：
 
-1. **图生视频（首帧）未在真实上游跑通**：同样受账号冷却/Console 视频额度 `0/0` 阻塞。
-   提交请求形状已由模拟服务与单元测试覆盖，但真实出片未验证。
-2. **多图参考视频未在真实上游跑通**：同上。
-3. **`duration` 的离散可用值未实测**：只验证了 `6` 秒可用。
-4. **完整成片链路（建项目→故事→角色→分镜→视频→合并）未在界面走通**：
-   各环节的接口已在真实上游逐个验证，但未串联跑完整流程。
-5. **Electron 打包版未重新打包**：改动只在源码模式验证。
-6. **`better-sqlite3` 版本未固化**：本机因 Node 24 无 v11 预编译包而临时升到 v12，
+| 模型 | video 路由到的渠道 | 本机号池可用性 |
+|---|---|---|
+| `grok-imagine-video` | Web / Console | ❌ Web 限流、Console 视频额度 `0/0` |
+| `grok-imagine-video-1.5` | Console **+ Build** | ✅ **Build 账号可用** |
+
+### 6.7 图生视频与多图参考视频（第三轮，已跑通）
+
+第二轮卡住的原因是**模型选错渠道**，不是额度不足。查 `model_routes` 后定位：
+
+| 模型 | video 路由到的渠道 | 本机可用性 |
+|---|---|---|
+| `grok-imagine-video` | Web / Console | ❌ Web 限流、Console 视频额度 `0/0` |
+| `grok-imagine-video-1.5` | Console **+ Build** | ✅ **Build 账号可用** |
+
+改用 `grok-imagine-video-1.5` 后两条验收标准均达成：
+
+**图生视频（首帧）**——提交 → 轮询 → 取片：
+```
+{"request_id":"video_dU27-ef4Qc67uQrQ-Y4YgMx0"}                       HTTP 200
+[1] {"progress":1,"status":"pending"}
+[2] {"progress":37,"status":"pending"}
+[3] {"progress":100,"status":"done","video":{"duration":6,"url":".../vid_3wmXB8pP1Ss6..."}}
+```
+下载后抽首帧与原图比对，**验证「视频确实以该帧开头」**：
+```
+输入首帧 vs 视频首帧  汉明距离: 3 / 256   相似度 98.8%
+（不相关图通常约 50% 相似度）
+```
+输出视频：4.0MB MP4。
+
+**多图参考视频**——2 张 data URL 参考图：
+```
+{"request_id":"video_Lg-Xu-AszUKpiJEqIu9BLPQ7"}                       HTTP 200
+[4] {"progress":100,"status":"done","video":{"url":".../vid_hR0g4UHMuTR1..."}}
+```
+输出视频：5.5MB，`Duration 00:00:06.04`，`1280x720 h264 24fps`。
+
+> **一个重要的实测约束**：Build 渠道**不接受 `http://` 图片 URL**，会返回
+> `Build 视频生成失败: Fetching images over plain http:// is not supported. [WKE=invalid_image]`。
+> 必须用 `https://` 或 **data URL**。这正好印证契约 §7「data URL 被全面支持」的实用价值——
+> LMD 把本地图转 base64 的做法在 Build 渠道上是**必需**的，不只是可选优化。
+
+### 6.8 完整成片链路（第三轮，已走通）
+
+在 LMD 里按计划 §5.3 的顺序完整走了一遍：
+
+| 步骤 | 接口 | 结果 |
+|---|---|---|
+| 1. 建项目 | `POST /dramas` | ✅ 项目 id=1 |
+| 2. 生成故事 | `POST /generation/story` | ✅ 剧集「雨夜半边钥」 |
+| 3. 提取角色 | `POST /generation/characters` | ✅ 3 个（林晚、陈默、林晓） |
+| 4. 生成角色图 | `POST /characters/:id/generate-image` | ✅ 3/3 张 |
+| 5. 生成分镜 | `POST /episodes/1/storyboards` | ✅ 10 个分镜 |
+| 6. 生成分镜图 | `POST /images` | ⚠️ 3/10（受 Web 限流，见 6.9） |
+| 7. 生成视频 | `POST /videos` | ✅ 3/3 个 |
+| 8. 合并成片 | `POST /episodes/1/finalize` | ✅ 24 秒成片 |
+
+**成片验证**（ffmpeg 探测真实产物）：
+```
+$ ffmpeg -i data/storage/projects/*/videos/merged/merged_1789671649590.mp4
+  Duration: 00:00:24.15, start: 0.000000, bitrate: 7357 kb/s
+  Stream #0:0: Video: h264 (High), yuv420p(tv, bt709), 2560x1440, 7230 kb/s, 24 fps
+```
+文件 22.2MB，由 3 个真实生成的分镜视频（各 6 秒）合并而成，
+剧集状态随之变为 `completed`。
+
+**角色图生成的关键日志**（证明 grok2api 协议分支按预期工作）：
+```
+[图生] callImageApi 路由 {"protocol":"grok2api","api_protocol_raw":"grok2api",
+                          "provider":"grok2api","model":"grok-imagine-image","size":"1792x1024"}
+[grok2api图生] 提交 {"endpoint":"/images/generations","aspect_ratio":"3:2",
+                    "original_size":"1792x1024","quality":"(omitted)"}
+```
+→ `1792x1024` 被正确映射为 `3:2`，且**未发送 `quality`**——正是修复后的目标行为。
+
+**分镜图生成的关键日志**（证明参考图走 edits）：
+```
+[grok2api图生] 提交 {"url":".../v1/images/edits","endpoint":"/images/edits",
+                    "model":"grok-imagine-image-edit","aspect_ratio":"16:9",
+                    "has_ref_images":true,"ref_count":1,"quality":"(omitted)"}
+```
+
+### 6.9 分镜图 3/10：Web 账号限流（外部资源限制）
+
+分镜图仅完成 3/10，其余失败于 `429 上游账号正在冷却` / `503 当前没有可用的上游账号`。
+判定为账号侧限制，依据是上游审计表——**同一时间段内图片全渠道失败、视频全成功**：
+
+```
+provider       operation    status  error_code                 n
+grok_web       image        503     upstream_cooling           3
+grok_web       image_edit   503     upstream_cooling           1
+grok_web       image_edit   503     upstream_unavailable       2
+grok_console   image        503     upstream_quota_exhausted   1
+grok_build     video        200     (成功)                     4
+```
+
+Web 账号 `failureCount` 从 6 涨到 8，冷却时间被上游逐次延长（19:08 → 19:38 → 20:10）。
+在冷却窗口结束的瞬间重试即成功（第 4 次尝试生成出第 1 张分镜图），
+之后连续请求又迅速触发限流——典型的**上游速率限制**特征，与请求格式无关。
+
+> 结论：分镜图这一步**代码路径已验证可用**（3 张真实出图 + 日志显示正确路由到
+> `/images/edits` 并带 1 张参考图），未完成的部分纯粹是号池配额不足。
+
+### 6.10 仍未覆盖
+
+1. **分镜图未跑满 10/10**：受 Web 账号限流，完成 3 张。需等待配额恢复后补跑。
+2. **`duration` 的离散可用值未实测**：只验证了 `6` 秒可用（文生/图生/参考视频均通过）。
+3. **Electron 打包版未重新打包**：改动只在源码模式验证。
+4. **`better-sqlite3` 版本未固化**：本机因 Node 24 无 v11 预编译包而临时升到 v12，
    但 `package.json` 仍声明 `^11.6.0`。若团队统一用 Node 20/22，应保持 v11；
    若统一用 Node 24，建议把依赖显式升到 `^12`。
-7. **管理凭据的存放**：本次为取回客户端 Key，读取了容器挂载的 `config.yaml`
+5. **管理凭据的存放**：本次为取回客户端 Key，读取了容器挂载的 `config.yaml`
    （含 `bootstrapAdmin` 明文密码）并调用了管理 API。该密码明文存放于配置文件，
    建议改为环境变量注入，并在首次登录后按官方注释删除 `bootstrapAdmin` 段。
+6. **界面级操作**：本次通过 LMD 的 HTTP API 走通全链路（与前端调用的是同一批接口），
+   未在浏览器里逐一点击。接口层已验证，UI 层未做人工点击验收。
+
 

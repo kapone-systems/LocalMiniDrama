@@ -250,6 +250,28 @@ storage_options   object   非空即 400
 `/v1/media/videos/{assetId}`（`handler.go:955-960`）——该地址**不需要 API Key 即可在浏览器/播放器打开**；
 只有当任务没有落盘 asset 时才回退到需要鉴权的 `/v1/videos/{id}/content`。
 
+### 5.2.1 视频模型按渠道分流（实测，v3.1.6）
+
+`model_routes` 表中 `capability='video'` 的路由决定模型走哪个渠道，
+**这直接影响号池要求**：
+
+| 模型 | 路由到的渠道 | 说明 |
+|---|---|---|
+| `grok-imagine-video` | Web + Console | Web 不支持图生视频；Console 需视频额度 |
+| `grok-imagine-video-1.5` | Console + **Build** | **Build 账号可用于图生视频** |
+
+> **实测结论**：当号池的 Console 视频额度为 `0/0`、Web 账号被限流时，
+> 用 `grok-imagine-video-1.5` 走 Build 渠道可以正常完成文生视频、图生视频与多图参考视频。
+
+**Build 渠道的额外约束（实测）**：**不接受 `http://` 图片 URL**，会返回
+
+```
+Build 视频生成失败: Fetching images over plain http:// is not supported. [WKE=invalid_image]
+```
+
+必须使用 `https://` 或 **data URL**。因此 LMD 把本地图转 base64 的做法在 Build 渠道上是
+**必需**的，不只是可选优化——尤其当 grok2api 与本机同机部署、媒体地址是 `http://127.0.0.1:...` 时。
+
 ### 5.3 视频参数的硬约束（`gateway/video.go:236-268`）
 
 常量定义在 `infra/provider/provider.go:547-550`：
