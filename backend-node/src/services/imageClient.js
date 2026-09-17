@@ -98,7 +98,99 @@ function inferProtocol(provider, model) {
   if (p === 'kling' || p === 'klingai') return 'kling';
   if (/^kling-/i.test(model || '')) return 'kling';
   if (p === 'agnes' || /agnes-image|apihub\.agnes-ai\.com/i.test(String(model || ''))) return 'agnes';
+  if (p === 'grok2api') return 'grok2api';
   return 'openai';
+}
+
+// ── grok2api 图片协议 ─────────────────────────────────────────────────────────
+// 上游契约见 docs/grok2api-contract.md（grok2api v3.1.6）。三条硬约束：
+//   1. 只发 aspect_ratio，不发 size —— 上游 size 白名单很窄，发像素尺寸会 400；
+//   2. quality 默认不发 —— 仅 grok-imagine-image-2.0 支持，其他模型传了反而报错；
+//   3. 有参考图必须走 /images/edits —— /images/generations 无 image 字段且不校验未知字段，
+//      参考图会被静默丢弃（表现为「图生出来了但角色不像」）。
+const GROK2API_DEFAULT_IMAGE_MODEL = 'grok-imagine-image';
+/** 唯一支持 quality 的模型（grok2api console/media.go:769-781） */
+const GROK2API_QUALITY_MODEL = 'grok-imagine-image-2.0';
+/** Console 图片编辑参考图上限（console/media.go:31）；HTTP 层允许 8，但适配器只放行 3 */
+const GROK2API_MAX_EDIT_IMAGES = 3;
+
+/** grok2api 图片侧接受的比例标签（console/media.go:789-795，Web 侧另有 19.5:9 / 20:9，取交集最稳） */
+const GROK2API_IMAGE_ASPECT_RATIOS = new Set([
+  '1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '2:1', '1:2',
+]);
+
+/** LMD 常用像素尺寸 → 比例（含 LMD aspectRatioToSize 的全部取值） */
+const GROK2API_SIZE_TO_RATIO = {
+  '2560x1440': '16:9', '1920x1080': '16:9', '1280x720': '16:9', '1792x1024': '3:2',
+  '1440x2560': '9:16', '720x1280': '9:16', '1024x1792': '2:3',
+  '1920x1920': '1:1', '1024x1024': '1:1',
+  '2240x1680': '4:3', '1680x2240': '3:4', '1024x1536': '2:3', '1536x1024': '3:2',
+  // 21:9 上游不支持（视频白名单更是没有），回退到 16:9
+  '2940x1260': '16:9',
+};
+
+/**
+ * LMD 的像素尺寸 → grok2api 的 aspect_ratio。
+ * 已知尺寸查表；未知尺寸按宽高比归桶；无法解析或超宽比例回退 16:9。
+ */
+function grok2ApiAspectRatioFromSize(size) {
+  const s = String(size || '').trim().toLowerCase().replace(/\s/g, '');
+  if (!s) return '16:9';
+  if (GROK2API_SIZE_TO_RATIO[s]) return GROK2API_SIZE_TO_RATIO[s];
+  if (GROK2API_IMAGE_ASPECT_RATIOS.has(s)) return s;
+  const m = s.match(/^(\d+)[x*](\d+)$/);
+  if (!m) return '16:9';
+  const w = parseInt(m[1], 10);
+  const h = parseInt(m[2], 10);
+  if (!w || !h) return '16:9';
+  const r = w / h;
+  if (r > 2.0) return '16:9';   // 21:9 等超宽 → 回退
+  if (r >= 1.6) return '16:9';
+  if (r >= 1.4) return '3:2';
+  if (r >= 1.15) return '4:3';
+  if (r >= 0.87) return '1:1';
+  if (r >= 0.72) return '3:4';
+  if (r >= 0.55) return '2:3';
+  return '9:16';
+}
+
+/**
+ * 解析要发给 grok2api 的 quality。
+ * 只有 grok-imagine-image-2.0 接受 quality，且值必须是 low/medium；
+ * 其他模型一律返回空（传了会 400），LMD 惯用的 'standard' 永远不发。
+ */
+function resolveGrok2ApiQuality(model, quality) {
+  if (String(model || '').trim() !== GROK2API_QUALITY_MODEL) return '';
+  const q = String(quality || '').trim().toLowerCase();
+  return (q === 'low' || q === 'medium') ? q : '';
+}
+
+/**
+ * 是否按 grok2api 图片协议处理。
+ * - api_protocol 显式指定 'grok2api' → 是；显式指定其他协议 → 否（尊重用户选择）。
+ * - api_protocol 为空或泛化的 'openai'，且模型是 grok-imagine-*，且 base_url 不是官方
+ *   xAI 域名 → 是。这类模型在 grok2api 上是主要用法，而沿用 openai 协议会发像素 size 与
+ *   quality:'standard'（正是 400 的根因）；排除 api.x.ai 是为了不破坏「直连官方 xAI」。
+ *   （与 videoClient.resolveVideoProtocol 对 api.x.ai 的处理同构。）
+ */
+function isGrok2ApiImageProtocol(apiProtocol, provider, model, baseUrl) {
+  const explicit = String(apiProtocol || '').trim().toLowerCase();
+  if (explicit === 'grok2api') return true;
+  if (explicit && explicit !== 'openai') return false;
+  if (String(provider || '').toLowerCase() === 'grok2api') return true;
+  if (!/^grok-imagine-/i.test(String(model || '').trim())) return false;
+  if (/api\.x\.ai(\/|$)/i.test(String(baseUrl || ''))) return false;
+  return true;
+}
+
+/** grok2api 图片接口地址：base_url 通常已含 /v1（与 openai 协议一致），故默认端点不带 /v1 前缀 */
+function buildGrok2ApiImageUrl(config, useEdit) {
+  const base = (config.base_url || '').replace(/\/$/, '');
+  const configured = useEdit ? (config.edit_endpoint || config.editEndpoint) : config.endpoint;
+  const fallback = useEdit ? '/images/edits' : '/images/generations';
+  let ep = String(configured || fallback).trim() || fallback;
+  if (!ep.startsWith('/')) ep = '/' + ep;
+  return base + ep;
 }
 
 /**
@@ -1407,6 +1499,134 @@ async function callGeminiImageApi(db, config, log, opts) {
 }
 
 /**
+ * grok2api 图片生成 / 编辑。
+ *
+ * 分流规则（见 docs/grok2api-contract.md §4）：
+ * - 无参考图 → POST {base}/images/generations，body: {model, prompt, n, aspect_ratio}
+ * - 有参考图 → POST {base}/images/edits，      body: {model, prompt, n, aspect_ratio, images:[{url}]}
+ *
+ * 不发 size（改用 aspect_ratio）、不发 quality（除非模型是 grok-imagine-image-2.0）、
+ * 不发 negative_prompt（上游未定义该字段）。
+ */
+async function callGrok2ApiImage(config, log, opts) {
+  const {
+    prompt,
+    model,
+    size,
+    quality,
+    image_gen_id,
+    reference_image_urls,
+    files_base_url,
+    storage_local_path,
+  } = opts;
+
+  const modelName = String(model || '').trim() || GROK2API_DEFAULT_IMAGE_MODEL;
+  const aspectRatio = grok2ApiAspectRatioFromSize(size);
+
+  const rawRefs = Array.isArray(reference_image_urls) ? reference_image_urls.filter(Boolean) : [];
+  const resolvedRefs = rawRefs
+    .map((r) => resolveImageRef(r, files_base_url, storage_local_path))
+    .filter(Boolean);
+  const useEdit = resolvedRefs.length > 0;
+
+  const effectiveRefs = resolvedRefs.slice(0, GROK2API_MAX_EDIT_IMAGES);
+  if (resolvedRefs.length > GROK2API_MAX_EDIT_IMAGES) {
+    log.warn('[grok2api图生] 参考图超出上游上限，已截断', {
+      image_gen_id,
+      requested: resolvedRefs.length,
+      used: effectiveRefs.length,
+      max: GROK2API_MAX_EDIT_IMAGES,
+    });
+  }
+
+  const url = buildGrok2ApiImageUrl(config, useEdit);
+  const body = {
+    model: modelName,
+    prompt: prompt || '',
+    n: 1,
+    aspect_ratio: aspectRatio,
+  };
+  if (useEdit) {
+    body.images = effectiveRefs.map((u) => ({ url: u }));
+  }
+  const effectiveQuality = resolveGrok2ApiQuality(modelName, quality);
+  if (effectiveQuality) body.quality = effectiveQuality;
+  else if (quality && String(quality).trim() && String(quality).trim().toLowerCase() !== 'standard') {
+    log.info('[grok2api图生] 已忽略 quality（仅 grok-imagine-image-2.0 支持）', {
+      image_gen_id, model: modelName, requested_quality: quality,
+    });
+  }
+
+  log.info('[grok2api图生] 提交', {
+    image_gen_id,
+    url: url.slice(0, 80),
+    endpoint: useEdit ? '/images/edits' : '/images/generations',
+    model: modelName,
+    aspect_ratio: aspectRatio,
+    original_size: size,
+    has_ref_images: useEdit,
+    ref_count: effectiveRefs.length,
+    quality: effectiveQuality || '(omitted)',
+  });
+
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer ' + (config.api_key || ''),
+  };
+
+  let raw;
+  let httpStatus;
+  try {
+    const out = await postJSONWithTimeout(url, headers, body, IMAGE_HTTP_TIMEOUT_MS);
+    httpStatus = out.statusCode;
+    raw = out.raw;
+  } catch (e) {
+    log.error('[grok2api图生] 网络错误', { image_gen_id, error: e.message, url: url.slice(0, 80) });
+    return {
+      error: e.message && e.message.includes('timeout')
+        ? e.message
+        : ('图片生成网络请求失败: ' + e.message),
+    };
+  }
+
+  if (httpStatus < 200 || httpStatus >= 300) {
+    log.error('[grok2api图生] 失败', { status: httpStatus, body: raw.slice(0, 300) });
+    let errMsg = '图片生成请求失败: ' + httpStatus;
+    try {
+      const errJson = JSON.parse(raw);
+      const msg = errJson.error?.message || errJson.message || errJson.error;
+      if (msg) errMsg += ' - ' + (typeof msg === 'string' ? msg : JSON.stringify(msg).slice(0, 200));
+    } catch (_) {
+      if (raw && raw.length) errMsg += ' - ' + raw.slice(0, 200);
+    }
+    return { error: errMsg };
+  }
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    log.warn('[grok2api图生] 响应解析失败', { image_gen_id, raw_preview: raw.slice(0, 200) });
+    return { error: '图片生成返回格式异常' };
+  }
+
+  const item = data.data && data.data[0];
+  let imageUrl = item && (item.url || item.image_url);
+  if (!imageUrl && item?.b64_json) {
+    imageUrl = `data:image/png;base64,${String(item.b64_json).replace(/\s/g, '')}`;
+  }
+  if (!imageUrl) {
+    log.warn('[grok2api图生] 响应中无图片地址', {
+      image_gen_id,
+      response_keys: data ? Object.keys(data) : [],
+      data_preview: JSON.stringify(data).slice(0, 500),
+    });
+    return { error: '未返回图片地址' };
+  }
+  return { image_url: imageUrl };
+}
+
+/**
  * 调用提供商图片生成 API（OpenAI /images/generations 风格 或 通义万象 multimodal-generation）
  * @param {object} db - database
  * @param {object} log - logger
@@ -1439,7 +1659,13 @@ async function callImageApi(db, log, opts) {
   const model = getModelFromConfig(config, preferredModel);
   const provider = (config.provider || '').toLowerCase();
   // api_protocol 显式指定接口规范，优先级高于 provider 推断；未设置时按 provider 自动判断
-  const protocol = (config.api_protocol || '').toLowerCase() || inferProtocol(provider, model);
+  let protocol = (config.api_protocol || '').toLowerCase() || inferProtocol(provider, model);
+  // grok-imagine-* 模型走 grok2api 协议（api_protocol 为空或泛化 openai 时纠偏），
+  // 否则会按 openai 协议发像素 size 与 quality:'standard'，被上游 400 拒绝
+  if (protocol !== 'grok2api'
+    && isGrok2ApiImageProtocol(config.api_protocol, provider, model, config.base_url)) {
+    protocol = 'grok2api';
+  }
 
   // ── 参考图标签注入：为所有非 Gemini 模型将标签注入 prompt 文本 ─────────────────────────────
   // Gemini 通过 parts 结构处理（interleaved text+image），不需要文字注入。
@@ -1516,6 +1742,15 @@ async function callImageApi(db, log, opts) {
       files_base_url: opts.files_base_url,
       storage_local_path: opts.storage_local_path,
       system_prompt: opts.system_prompt,
+    });
+  }
+
+  if (protocol === 'grok2api') {
+    return callGrok2ApiImage(config, log, {
+      prompt: effectivePrompt, model, size, quality, image_gen_id,
+      reference_image_urls: opts.reference_image_urls,
+      files_base_url: opts.files_base_url,
+      storage_local_path: opts.storage_local_path,
     });
   }
 
@@ -1884,9 +2119,15 @@ function rowToItem(r) {
 /** 分镜参考图上限（与 callGeminiImageApi 的 MAX_GEMINI_REF_IMAGES、可灵单图参考等对齐） */
 function getStoryboardReferenceLimits(config, modelName) {
   const provider = (config?.provider || '').toLowerCase();
-  const protocol = (config?.api_protocol || '').toLowerCase() || inferProtocol(provider, modelName || config?.model);
+  const modelForProtocol = modelName || config?.model;
+  const explicit = (config?.api_protocol || '').toLowerCase();
+  const protocol = explicit || inferProtocol(provider, modelForProtocol);
   if (protocol === 'kling') {
     return { total: 1, maxCharacters: 1, maxObjects: 1 };
+  }
+  // grok2api 图片编辑上限 3 张（Console 适配器），留 1 张余量给主参考图
+  if (isGrok2ApiImageProtocol(config?.api_protocol, provider, modelForProtocol, config?.base_url)) {
+    return { total: 3, maxCharacters: 2, maxObjects: 3 };
   }
   return { total: 4, maxCharacters: 3, maxObjects: 4 };
 }
@@ -1949,6 +2190,12 @@ module.exports = {
   fixAgnesImageSize,
   mapAgnesImageSizeSpec,
   isAgnesImageConfig,
+  /** grok2api 图片协议（契约见 docs/grok2api-contract.md） */
+  isGrok2ApiImageProtocol,
+  grok2ApiAspectRatioFromSize,
+  resolveGrok2ApiQuality,
+  buildGrok2ApiImageUrl,
+  callGrok2ApiImage,
   /** 图床 URL 缓存（image_proxy_cache），供 SD2 认证等复用 */
   getProxyCache,
   getProxyCacheValidated,

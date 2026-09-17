@@ -372,7 +372,6 @@ async function generateSceneFourViewImage(db, log, cfg, sceneId, modelName, styl
     prompt: imagePrompt,
     model: modelName || undefined,
     size: '1792x1024',
-    quality: 'standard',
     provider: 'openai',
   });
 
@@ -449,7 +448,6 @@ async function generateSceneSingleImage(db, log, cfg, sceneId, modelName, style)
     prompt: imagePrompt,
     model: modelName || undefined,
     size: '1792x1024',
-    quality: 'standard',
     provider: 'openai',
   });
 
