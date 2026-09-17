@@ -22,8 +22,8 @@
 | 一键导入配置 | `各大平台中转站配置/grok2api.json` | ✅ |
 | 前端 grok2api 预设 | `frontweb/src/components/AIConfigContent.vue` | ✅ |
 | 接入文档 | `docs/configuration.md`（新增 grok2api 章节） | ✅ |
-| 端到端验收脚本（模拟上游） | `backend-node/scripts/verify-grok2api-e2e.js` | ✅ |
-| 真实上游联调脚本 | `backend-node/scripts/verify-grok2api-live.js` | ✅ |
+| 端到端验收脚本（模拟上游） | `backend-node/test/manual/verify-grok2api-e2e.js` | ✅ |
+| 真实上游联调脚本 | `backend-node/test/manual/verify-grok2api-live.js` | ✅ |
 | 验收记录 | 本文件 | ✅ |
 
 ---
@@ -187,7 +187,7 @@ $ cd backend-node && npm test
 ### 端到端集成验证
 
 ```
-$ node scripts/verify-grok2api-e2e.js
+$ node test/manual/verify-grok2api-e2e.js
 ==== 17/17 通过 ====
 ```
 
@@ -310,11 +310,11 @@ edited.jpg 1408x1408 jpeg
 
 ### 6.5 LMD 真实代码路径打真实上游
 
-用 `scripts/verify-grok2api-live.js`（走 LMD 真实的 `callImageApi` / `callVideoApi` /
+用 `test/manual/verify-grok2api-live.js`（走 LMD 真实的 `callImageApi` / `callVideoApi` /
 `pollVideoTask` / `testConnection`，非模拟）：
 
 ```
-$ G2A_KEY=g2a_xxx node scripts/verify-grok2api-live.js
+$ G2A_KEY=g2a_xxx node test/manual/verify-grok2api-live.js
 PASS  testConnection 真实上游通过
 PASS  testConnection 拒绝不存在的模型  — 模型「grok-imagine-medium」在上游不存在。可用模型：grok-4.5, grok-4.6, ...
 PASS  文生图真实出图（角色/场景图）  — http://127.0.0.1:8000/v1/media/images/img_...   耗时 5.6s
