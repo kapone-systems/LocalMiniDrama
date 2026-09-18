@@ -3,8 +3,12 @@
   "version": "1.2.9",
   "description": "LocalMiniDrama 本地桌面客户端",
   "main": "main.js",
-  "author": "LocalMiniDrama",
+  "author": "kapone-systems",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kapone-systems/LocalMiniDrama.git"
+  },
   "scripts": {
     "prestart": "node scripts/copy-backend.js",
     "start": "electron .",
