@@ -6,7 +6,7 @@
 
 *基于上游 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) v1.2.8 二次开发*
 
-[![version](https://img.shields.io/badge/version-1.2.9-blue?style=flat-square)](https://github.com/kapone-systems/LocalMiniDrama/releases)
+[![version](https://img.shields.io/badge/version-1.2.10-blue?style=flat-square)](https://github.com/kapone-systems/LocalMiniDrama/releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](#-快速开始)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#-项目架构)
@@ -31,7 +31,7 @@
 | 仓库地址 | [xuanyustudio/LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) | [kapone-systems/LocalMiniDrama](https://github.com/kapone-systems/LocalMiniDrama) |
 | 下载方式 | 上游 Releases | **只从本仓库 [Releases](https://github.com/kapone-systems/LocalMiniDrama/releases) 下载** |
 | grok2api 接入 | ❌ 无 | ✅ 图片 / 视频 / 文本协议 |
-| 版本号 | 1.2.8 | 1.2.9 |
+| 版本号 | 1.2.8 | 1.2.10 |
 
 **重要：**
 
