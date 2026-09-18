@@ -384,4 +384,13 @@ onMounted(() => load())
   padding-top: 16px;
   border-top: 1px solid var(--border-color, #e4e4e7);
 }
+
+/* 暗色覆盖：上方 .locked-content / .section-label--locked 按亮色硬编码
+   （浅蓝底 + 深蓝字），暗色下会形成亮块。改为半透明蓝底 + 提亮文字。 */
+html.dark .locked-content {
+  background: rgba(59, 130, 246, .12);
+  border-color: rgba(59, 130, 246, .28);
+  color: #93c5fd;
+}
+html.dark .section-label--locked { color: #93c5fd; }
 </style>

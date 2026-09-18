@@ -1,11 +1,7 @@
 <template>
   <div class="film-list">
-    <header class="header">
-      <div class="header-inner">
-        <h1 class="logo">
-          <span class="logo-main">本地短剧助手</span>
-          <span class="logo-sub">LocalMiniDrama</span>
-        </h1>
+    <AppHeader>
+      <template #center>
         <!-- 公共资源库（左侧，靛紫调） -->
         <div class="header-library">
           <el-button class="btn-library" @click="showCharLibrary = true">
@@ -18,35 +14,30 @@
             <el-icon><Box /></el-icon>素材道具
           </el-button>
         </div>
-        <!-- 右侧操作区 -->
-        <div class="header-actions">
-          <!-- 暂时隐藏，功能待完善 -->
-          <!-- <el-button class="btn-library" title="自由创作" @click="$router.push('/free-create')">
-            <el-icon><MagicStick /></el-icon>自由创作
-          </el-button>
-          <el-button class="btn-library" title="媒体素材库" @click="$router.push('/media-library')">
-            <el-icon><Files /></el-icon>素材库
-          </el-button> -->
-          <el-button v-if="!vendorLockEnabled" class="btn-wechat" title="扫码联系作者" @click="showWechat = true">
-            <el-icon><ChatDotSquare /></el-icon>微信我
-          </el-button>
-          <el-button class="btn-theme" :title="isDark ? '切换到浅色模式' : '切换到暗色模式'" @click="toggleTheme">
-            <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
-            {{ isDark ? '浅色' : '暗色' }}
-          </el-button>
-          <el-button class="btn-settings" @click="showAiConfigDialog = true">
-            <el-icon><Setting /></el-icon>AI配置
-          </el-button>
-          <el-button class="btn-import" :loading="importing" @click="triggerImport">
-            <el-icon><Upload /></el-icon>导入项目
-          </el-button>
-          <input ref="importFileInput" type="file" accept=".zip" style="display:none" @change="onImportFile" />
-          <el-button type="primary" class="btn-new" @click="goNewProject">
-            <el-icon><Plus /></el-icon>新建项目
-          </el-button>
-        </div>
-      </div>
-    </header>
+      </template>
+      <template #actions>
+        <!-- 暂时隐藏，功能待完善 -->
+        <!-- <el-button class="btn-library" title="自由创作" @click="$router.push('/free-create')">
+          <el-icon><MagicStick /></el-icon>自由创作
+        </el-button>
+        <el-button class="btn-library" title="媒体素材库" @click="$router.push('/media-library')">
+          <el-icon><Files /></el-icon>素材库
+        </el-button> -->
+        <el-button v-if="!vendorLockEnabled" class="btn-wechat" title="扫码联系作者" @click="showWechat = true">
+          <el-icon><ChatDotSquare /></el-icon>微信我
+        </el-button>
+        <el-button class="btn-settings" @click="showAiConfigDialog = true">
+          <el-icon><Setting /></el-icon>AI配置
+        </el-button>
+        <el-button class="btn-import" :loading="importing" @click="triggerImport">
+          <el-icon><Upload /></el-icon>导入项目
+        </el-button>
+        <el-button type="primary" class="btn-new" @click="goNewProject">
+          <el-icon><Plus /></el-icon>新建项目
+        </el-button>
+      </template>
+    </AppHeader>
+    <input ref="importFileInput" type="file" accept=".zip" style="display:none" @change="onImportFile" />
 
     <main class="main">
       <div v-loading="loading" class="projects-wrap">
@@ -356,8 +347,8 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, Sunny, Moon, ChatDotSquare, Download, Upload, QuestionFilled, FolderOpened, MagicStick, Files } from '@element-plus/icons-vue'
-import { useTheme } from '@/composables/useTheme'
+import { Edit, Delete, Setting, Plus, User, PictureFilled, Box, ChatDotSquare, Download, Upload, QuestionFilled, FolderOpened, MagicStick, Files } from '@element-plus/icons-vue'
+import AppHeader from '@/components/AppHeader.vue'
 import { dramaAPI } from '@/api/drama'
 import { characterLibraryAPI } from '@/api/characterLibrary'
 import { sceneLibraryAPI } from '@/api/sceneLibrary'
@@ -370,7 +361,6 @@ import { taskAPI } from '@/api/task'
 import { getStyleLabel } from '@/constants/styleOptions'
 
 const router = useRouter()
-const { isDark, toggle: toggleTheme } = useTheme()
 
 // 库编辑图片 – 文件输入 refs
 const charLibFileRef  = ref(null)
@@ -805,51 +795,7 @@ onMounted(async () => {
     radial-gradient(ellipse 50% 35% at 85% 55%, rgba(139, 92, 246, 0.1) 0%, transparent 60%),
     radial-gradient(ellipse 40% 30% at 10% 80%, rgba(79, 70, 229, 0.08) 0%, transparent 60%);
 }
-.header {
-  background: rgba(12, 12, 18, 0.82);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(99, 102, 241, 0.18);
-  padding: 12px 24px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 1px 0 rgba(99, 102, 241, 0.08), 0 4px 24px rgba(0, 0, 0, 0.3);
-}
-.header-inner {
-  max-width: min(1400px, 96vw);
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.logo {
-  margin: 0;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  line-height: 1;
-}
-.logo-main {
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  background: linear-gradient(135deg, #a5b4fc 0%, #c084fc 50%, #f0abfc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.35));
-}
-.logo-sub {
-  font-size: 0.68rem;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  color: #6d6d7a;
-  -webkit-text-fill-color: #6d6d7a;
-  filter: none;
-}
+/* header / header-inner / logo* / header-actions / btn-theme 已迁移至 AppHeader.vue（公共类边界） */
 .page-title {
   color: #a1a1aa;
   font-size: 0.95rem;
@@ -859,12 +805,6 @@ onMounted(async () => {
   align-items: center;
   gap: 6px;
   margin-left: 20px;
-}
-.header-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 /* 资源库按钮 —— 靛紫调 */
@@ -889,24 +829,7 @@ html.light .btn-library {
   --el-button-active-border-color: rgba(79, 70, 229, 0.65);
 }
 
-/* 主题切换按钮 */
-.btn-theme {
-  --el-button-bg-color: rgba(148, 163, 184, 0.1);
-  --el-button-border-color: rgba(148, 163, 184, 0.3);
-  --el-button-text-color: #94a3b8;
-  --el-button-hover-bg-color: rgba(148, 163, 184, 0.2);
-  --el-button-hover-border-color: rgba(148, 163, 184, 0.5);
-  --el-button-hover-text-color: #cbd5e1;
-  transition: all 0.2s;
-}
-html.light .btn-theme {
-  --el-button-bg-color: rgba(99, 102, 241, 0.08);
-  --el-button-border-color: rgba(99, 102, 241, 0.3);
-  --el-button-text-color: #6366f1;
-  --el-button-hover-bg-color: rgba(99, 102, 241, 0.15);
-  --el-button-hover-border-color: rgba(99, 102, 241, 0.5);
-  --el-button-hover-text-color: #4f46e5;
-}
+/* 主题切换按钮样式见 AppHeader.vue */
 
 /* 微信我按钮 —— 绿调 */
 .btn-wechat {
@@ -1256,22 +1179,7 @@ html.light .film-list {
     radial-gradient(ellipse 70% 45% at 50% -10%, rgba(99, 102, 241, 0.1) 0%, transparent 70%),
     radial-gradient(ellipse 50% 35% at 85% 55%, rgba(139, 92, 246, 0.06) 0%, transparent 60%);
 }
-html.light .header {
-  background: rgba(248, 246, 255, 0.88);
-  border-bottom-color: rgba(99, 102, 241, 0.2);
-  box-shadow: 0 1px 0 rgba(99, 102, 241, 0.1), 0 4px 16px rgba(99, 102, 241, 0.06);
-}
-html.light .logo-main {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #9333ea 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.2));
-}
-html.light .logo-sub {
-  color: #9ca3af;
-  -webkit-text-fill-color: #9ca3af;
-}
+/* html.light .header / .logo* 已迁移至 AppHeader.vue */
 html.light .project-card {
   background: rgba(255, 255, 255, 0.9);
   border-color: rgba(199, 210, 254, 0.8);

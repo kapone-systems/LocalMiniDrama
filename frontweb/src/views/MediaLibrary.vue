@@ -308,7 +308,7 @@ onMounted(loadMedia)
   align-items: center;
   gap: 8px;
   margin-bottom: 12px;
-  color: #409eff;
+  color: var(--el-color-primary);
   font-size: 14px;
 }
 
@@ -334,7 +334,7 @@ onMounted(loadMedia)
 }
 
 .media-card.selected {
-  border-color: #409eff;
+  border-color: var(--el-color-primary);
 }
 
 .media-thumb {
@@ -375,7 +375,7 @@ onMounted(loadMedia)
   top: 8px;
   right: 8px;
   font-size: 20px;
-  color: #409eff;
+  color: var(--el-color-primary);
   background: #fff;
   border-radius: 50%;
 }

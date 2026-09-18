@@ -323,7 +323,7 @@
         <el-form-item v-if="form.service_type !== 'text' && form.service_type !== 'tts' && form.service_type !== 'jimeng2_character_auth'">
           <template #label>
             <span class="form-label-tip">接口规范
-              <el-icon class="tip-icon" style="cursor:pointer;color:#409eff" @click="showProtocolHelp = true"><QuestionFilled /></el-icon>
+              <el-icon class="tip-icon" style="cursor:pointer;color:var(--el-color-primary)" @click="showProtocolHelp = true"><QuestionFilled /></el-icon>
             </span>
           </template>
           <el-select v-model="form.api_protocol" style="width: 100%" placeholder="选择接口规范（自定义厂商必选）" clearable>
@@ -2603,6 +2603,7 @@ code {
   font-weight: 600;
   vertical-align: middle;
 }
+/* 图片/视频类型标识：蓝/绿为语义色（区分类型），非品牌主色，故不改为主色令牌 */
 .ph-tag-img {
   background: #ecf5ff;
   color: #409eff;
@@ -2643,7 +2644,7 @@ code {
   transition: color 0.15s;
 }
 .tip-icon:hover {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 .endpoint-preview-box {
   background: #f0f7ff;
@@ -2658,13 +2659,13 @@ code {
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  color: #409eff;
+  color: var(--el-color-primary);
   margin-bottom: 8px;
   font-size: 12px;
 }
 .ep-auto-badge {
   background: #e6f1ff;
-  color: #409eff;
+  color: var(--el-color-primary);
   border: 1px solid #b3d8ff;
   border-radius: 3px;
   padding: 0 5px;
@@ -2772,4 +2773,67 @@ code {
   color: #909399;
   font-size: 12px;
 }
+
+/* =====================================================
+   暗色模式覆盖
+   上方这些类按亮色硬编码（浅底 + 深字），在暗色下会变成
+   "暗页上的浅色块"（.default-tip 实测 1150x59、对比度仅 2.70:1）。
+   此处把浅底改为半透明同色系、深字提亮，仅覆盖颜色不改变布局。
+   ===================================================== */
+html.dark .default-tip {
+  background: rgba(56, 189, 248, .12);
+  color: #7dd3fc;
+}
+html.dark .ph-tag-img {
+  background: rgba(64, 158, 255, .15);
+  color: #79bbff;
+  border-color: rgba(64, 158, 255, .32);
+}
+html.dark .ph-tag-vid {
+  background: rgba(103, 194, 58, .15);
+  color: #95d475;
+  border-color: rgba(103, 194, 58, .32);
+}
+html.dark .protocol-help .ph-body { color: var(--text-primary); }
+html.dark .protocol-help .ph-body pre { background: var(--bg-inner); }
+html.dark .protocol-help .ph-body code { background: var(--bg-hover); }
+html.dark .endpoint-preview-box {
+  background: rgba(64, 158, 255, .1);
+  border-color: rgba(64, 158, 255, .25);
+}
+html.dark .ep-auto-badge {
+  background: rgba(167, 139, 250, .15);
+  border-color: rgba(167, 139, 250, .32);
+}
+html.dark .ep-box-gemini { background: rgba(230, 162, 60, .1); }
+html.dark .ep-badge-gemini {
+  background: rgba(230, 162, 60, .15);
+  color: #e6a23c;
+}
+html.dark .ep-box-gemini .ep-preview-header { color: #e6a23c; }
+html.dark .ep-url {
+  background: rgba(255, 255, 255, .06);
+  color: var(--text-primary);
+  border-color: var(--border-muted);
+}
+html.dark .gs-tip-box { background: var(--bg-inner); }
+
+/* 亮色下写死的灰阶文字：改为令牌，随主题自动适配 */
+html.dark .gs-label,
+html.dark .gs-section-title,
+html.dark .gs-tip-title { color: var(--text-primary); }
+html.dark .ep-label,
+html.dark .gs-desc,
+html.dark .gs-unit,
+html.dark .gs-tip-list,
+html.dark .one-key-tip,
+html.dark .ph-section-title { color: var(--text-muted); }
+html.dark .ep-tip,
+html.dark .field-tip,
+html.dark .gs-tip-note,
+html.dark .tip-icon { color: var(--text-subtle); }
+html.dark .no-default { color: var(--text-faint); }
+
+/* 主色相关：.ep-preview-header / .tip-icon:hover 已直接用 var(--el-color-primary)，
+   随主题自动适配，无需在此覆盖。 */
 </style>

@@ -2,6 +2,24 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      首帧前设定主题类，避免闪烁（FOUC）。
+      若等 main.js 执行后再加类，默认（亮色）用户会先看到一帧 :root 兜底色。
+      逻辑须与 composables/useTheme.js 保持一致：仅 'dark' 视为暗色，其余一律亮色。
+    -->
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('lmd-theme') === 'dark') {
+            document.documentElement.classList.add('dark')
+          } else {
+            document.documentElement.classList.add('light')
+          }
+        } catch (e) {
+          document.documentElement.classList.add('light')
+        }
+      })()
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>本地短剧助手 - AI 短剧生成工具</title>

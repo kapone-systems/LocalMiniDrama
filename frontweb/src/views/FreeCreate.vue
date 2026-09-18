@@ -426,7 +426,7 @@ async function pollVideoTask(taskId, item) {
 }
 
 .ref-image-zone:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-primary);
 }
 
 .ref-preview {
@@ -494,7 +494,7 @@ async function pollVideoTask(taskId, item) {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #409eff;
+  color: var(--el-color-primary);
   font-size: 14px;
   margin-bottom: 12px;
 }

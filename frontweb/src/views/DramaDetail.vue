@@ -1,30 +1,22 @@
 <template>
   <div class="drama-detail">
-    <header class="header">
-      <div class="header-inner">
-        <h1 class="logo" @click="router.push('/')">
-          <span class="logo-main">本地短剧助手</span>
-          <span class="logo-sub">LocalMiniDrama</span>
-        </h1>
+    <AppHeader :logo-click="() => router.push('/')">
+      <template #center>
         <span class="breadcrumb-sep">›</span>
         <span class="page-title">{{ drama?.title || '剧集管理' }}</span>
         <el-button class="btn-back-list" @click="router.push('/')">
           <el-icon><ArrowLeft /></el-icon>返回列表
         </el-button>
-        <div class="header-actions">
-          <el-button class="btn-theme" :title="isDark ? '切换到浅色模式' : '切换到暗色模式'" @click="toggleTheme">
-            <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
-            {{ isDark ? '浅色' : '暗色' }}
-          </el-button>
-          <el-button type="primary" @click="goCreate">
-            <el-icon><VideoPlay /></el-icon>进入制作
-          </el-button>
-          <el-button type="primary" plain @click="goCanvasMode">
-            <el-icon><Grid /></el-icon>画布模式
-          </el-button>
-        </div>
-      </div>
-    </header>
+      </template>
+      <template #actions>
+        <el-button type="primary" @click="goCreate">
+          <el-icon><VideoPlay /></el-icon>进入制作
+        </el-button>
+        <el-button type="primary" plain @click="goCanvasMode">
+          <el-icon><Grid /></el-icon>画布模式
+        </el-button>
+      </template>
+    </AppHeader>
 
     <main class="main" v-loading="loading">
       <!-- 基本信息 + 设置 -->
@@ -527,10 +519,10 @@
 import { ref, reactive, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, VideoPlay, Plus, Delete, Sunny, Moon, PictureFilled, Grid } from '@element-plus/icons-vue'
+import { ArrowLeft, VideoPlay, Plus, Delete, PictureFilled, Grid } from '@element-plus/icons-vue'
 import EpisodeBatchImportDialog from '@/components/EpisodeBatchImportDialog.vue'
 import StylePickerButton from '@/components/StylePickerButton.vue'
-import { useTheme } from '@/composables/useTheme'
+import AppHeader from '@/components/AppHeader.vue'
 import { dramaAPI } from '@/api/drama'
 import { characterLibraryAPI } from '@/api/characterLibrary'
 import { sceneLibraryAPI } from '@/api/sceneLibrary'
@@ -549,7 +541,6 @@ import {
 } from '@/constants/styleOptions'
 
 const route = useRoute()
-const { isDark, toggle: toggleTheme } = useTheme()
 const router = useRouter()
 const dramaId = Number(route.params.id)
 
@@ -1202,64 +1193,13 @@ onMounted(() => {
     radial-gradient(ellipse 60% 40% at 80% 110%, rgba(60, 100, 220, 0.12) 0%, transparent 60%);
   color: #e4e4e7;
 }
-.header {
-  background: rgba(18, 18, 22, 0.82);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(139, 92, 246, 0.18);
-  padding: 12px 24px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.4);
-}
+/* header / header-inner / logo* / header-actions / btn-theme 已迁移至 AppHeader.vue（公共类边界） */
 html.light .drama-detail {
   background: #f5f3ff;
   background-image:
     radial-gradient(ellipse 80% 50% at 20% -20%, rgba(139, 92, 246, 0.12) 0%, transparent 60%),
     radial-gradient(ellipse 60% 40% at 80% 110%, rgba(99, 102, 241, 0.08) 0%, transparent 60%);
 }
-html.light .drama-detail .header {
-  background: rgba(255, 255, 255, 0.85) !important;
-  border-bottom-color: rgba(139, 92, 246, 0.2) !important;
-  box-shadow: 0 2px 16px rgba(139, 92, 246, 0.08) !important;
-}
-.logo {
-  margin: 0;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  line-height: 1;
-  transition: filter 0.3s;
-}
-.logo:hover { filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.5)); }
-.logo-main {
-  font-size: 1.1rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #c4b5fd 0%, #818cf8 50%, #a78bfa 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.logo-sub {
-  font-size: 0.68rem;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  color: #6d6d7a;
-  -webkit-text-fill-color: #6d6d7a;
-}
-html.light .drama-detail .logo-main {
-  background: linear-gradient(135deg, #7c3aed, #6366f1);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-html.light .drama-detail .logo-sub {
-  color: #9ca3af;
-  -webkit-text-fill-color: #9ca3af;
-}
-.header-inner { max-width: min(1200px, 96vw); margin: 0 auto; display: flex; align-items: center; gap: 16px; }
 .breadcrumb-sep {
   color: #3f3f46;
   font-size: 1rem;
@@ -1289,7 +1229,6 @@ html.light .page-title {
 .btn-back-list {
   flex-shrink: 0;
 }
-.header-actions { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
 .main { max-width: min(1200px, 96vw); margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 20px; }
 .section.card {
   background: rgba(24, 24, 27, 0.75);
@@ -1498,23 +1437,4 @@ html.light .res-tab--drama.active::after { background: #7c3aed; }
 /* 图片预览 */
 .image-preview-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 9999; cursor: zoom-out; }
 .image-preview-img { max-width: 90vw; max-height: 90vh; border-radius: 8px; object-fit: contain; }
-
-/* 主题切换按钮 */
-.btn-theme {
-  --el-button-bg-color: rgba(148, 163, 184, 0.1);
-  --el-button-border-color: rgba(148, 163, 184, 0.3);
-  --el-button-text-color: #94a3b8;
-  --el-button-hover-bg-color: rgba(148, 163, 184, 0.2);
-  --el-button-hover-border-color: rgba(148, 163, 184, 0.5);
-  --el-button-hover-text-color: #cbd5e1;
-  transition: all 0.2s;
-}
-html.light .btn-theme {
-  --el-button-bg-color: rgba(99, 102, 241, 0.08);
-  --el-button-border-color: rgba(99, 102, 241, 0.3);
-  --el-button-text-color: #6366f1;
-  --el-button-hover-bg-color: rgba(99, 102, 241, 0.15);
-  --el-button-hover-border-color: rgba(99, 102, 241, 0.5);
-  --el-button-hover-text-color: #4f46e5;
-}
 </style>

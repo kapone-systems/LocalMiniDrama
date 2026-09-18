@@ -1,11 +1,7 @@
 <template>
   <div class="drama-canvas-page">
-    <header class="header">
-      <div class="header-inner">
-        <h1 class="logo" @click="router.push('/')">
-          <span class="logo-main">本地短剧助手</span>
-          <span class="logo-sub">画布模式</span>
-        </h1>
+    <AppHeader subtitle="画布模式" :sticky="false" :logo-click="() => router.push('/')">
+      <template #center>
         <span class="breadcrumb-sep">›</span>
         <span class="page-title">{{ drama?.title || '加载中…' }}</span>
 
@@ -28,36 +24,32 @@
         <span v-if="layoutSaveState === 'saving'" class="layout-status saving">保存中…</span>
         <span v-else-if="layoutSaveState === 'saved'" class="layout-status saved">已保存</span>
         <span v-else-if="layoutSaveState === 'error'" class="layout-status error">保存失败</span>
+      </template>
 
-        <div class="header-actions">
-          <el-button size="small" type="warning" plain @click="focusScriptNode">
-            剧本
-          </el-button>
-          <el-button size="small" @click="openCreateDialog('storyboard')">
-            <el-icon><Plus /></el-icon>
-            分镜
-          </el-button>
-          <el-button size="small" @click="openCreateDialog('character')">角色</el-button>
-          <el-button size="small" @click="openCreateDialog('scene')">场景</el-button>
-          <el-button size="small" @click="openCreateDialog('prop')">道具</el-button>
-          <el-button size="small" @click="openCreateDialog('episode')">
-            <el-icon><Plus /></el-icon>
-            集
-          </el-button>
-          <el-button size="small" :loading="aligningNodes" @click="onAlignNodes">
-            <el-icon><Grid /></el-icon>
-            对齐节点
-          </el-button>
-          <el-button type="primary" plain @click="goListMode">
-            <el-icon><List /></el-icon>
-            列表模式
-          </el-button>
-          <el-button class="btn-theme" @click="toggleTheme">
-            <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
-            {{ isDark ? '浅色' : '暗色' }}
-          </el-button>
-        </div>
-      </div>
+      <template #actions>
+        <el-button size="small" type="warning" plain @click="focusScriptNode">
+          剧本
+        </el-button>
+        <el-button size="small" @click="openCreateDialog('storyboard')">
+          <el-icon><Plus /></el-icon>
+          分镜
+        </el-button>
+        <el-button size="small" @click="openCreateDialog('character')">角色</el-button>
+        <el-button size="small" @click="openCreateDialog('scene')">场景</el-button>
+        <el-button size="small" @click="openCreateDialog('prop')">道具</el-button>
+        <el-button size="small" @click="openCreateDialog('episode')">
+          <el-icon><Plus /></el-icon>
+          集
+        </el-button>
+        <el-button size="small" :loading="aligningNodes" @click="onAlignNodes">
+          <el-icon><Grid /></el-icon>
+          对齐节点
+        </el-button>
+        <el-button type="primary" plain @click="goListMode">
+          <el-icon><List /></el-icon>
+          列表模式
+        </el-button>
+      </template>
 
       <div class="workflow-bar">
         <span class="wf-hint">已选 {{ selectedStoryboardIds.length }} 个分镜</span>
@@ -129,7 +121,7 @@
         <span class="gen-hint" title="完整创作流水线">剧本 → 提取角色/场景/道具 → 分镜 → 生图 → 视频</span>
       </div>
       <div v-if="episodeGenProgress" class="workflow-progress episode-gen">{{ episodeGenProgress }}</div>
-    </header>
+    </AppHeader>
 
     <div v-loading="loading" class="canvas-shell">
       <aside v-if="drama" class="canvas-sidebar">
@@ -265,7 +257,7 @@ import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
-import { List, Moon, Plus, Sunny, Grid } from '@element-plus/icons-vue'
+import { List, Plus, Grid } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import '@vue-flow/core/dist/style.css'
@@ -274,7 +266,7 @@ import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
 import { dramaAPI } from '@/api/drama'
-import { useTheme } from '@/composables/useTheme'
+import AppHeader from '@/components/AppHeader.vue'
 import { runWorkflowGroup } from '@/composables/useCanvasWorkflowRunner'
 import { CANVAS_CONTEXT_KEY } from '@/composables/useCanvasContext'
 import { useCanvasStoryboardMedia } from '@/composables/useCanvasStoryboardMedia'
@@ -320,7 +312,6 @@ import CanvasFlowAligner from '@/components/dramaCanvas/CanvasFlowAligner.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { isDark, toggle: toggleTheme } = useTheme()
 const { imagesBySbId, videosBySbId, loadForDrama } = useCanvasStoryboardMedia()
 
 const loading = ref(false)
@@ -922,19 +913,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-.header {
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--border-color, #27272a);
-  background: var(--bg-card, #18181b);
-}
-
-.header-inner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 20px 6px;
-  flex-wrap: wrap;
-}
+/* header / header-inner / logo* / header-actions 已迁移至 AppHeader.vue（公共类边界） */
 
 .workflow-bar {
   display: flex;
@@ -989,25 +968,6 @@ onBeforeUnmount(() => {
   min-width: 200px;
 }
 
-.logo {
-  margin: 0;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.logo-main {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-bright, #fafafa);
-}
-
-.logo-sub {
-  font-size: 11px;
-  color: #818cf8;
-}
-
 .breadcrumb-sep { color: var(--text-faint, #52525b); }
 
 .page-title {
@@ -1023,12 +983,6 @@ onBeforeUnmount(() => {
 .layout-status.saving { color: #60a5fa; }
 .layout-status.saved { color: #34d399; }
 .layout-status.error { color: #f87171; }
-
-.header-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-}
 
 .canvas-shell {
   flex: 1;

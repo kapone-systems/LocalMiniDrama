@@ -430,12 +430,3 @@ function highlightRelated() {
   to { transform: rotate(360deg); }
 }
 </style>
-
-<style>
-.canvas-panel-popper {
-  z-index: 4000 !important;
-}
-.canvas-panel-popper.el-select__popper .el-select-dropdown__wrap {
-  max-height: 168px !important;
-}
-</style>

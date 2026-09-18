@@ -1,25 +1,14 @@
 /* =====================================================
-   暗色模式（默认）— html.dark 或无类名时生效
+   主题令牌
+
+   :root  = 默认（亮色，见计划决策 D1）
+   html.dark  = 暗色覆盖
+   html.light = 亮色覆盖（与 :root 同值，显式声明以免 :root 被改后开关失效）
+
+   首帧前 html 就已带好 light/dark 类（index.html 内联脚本），
+   故 :root 仅作脚本失效时的兜底，与"亮色为默认"保持一致。
    ===================================================== */
 :root,
-html.dark {
-  --bg-page:       #0f0f12;
-  --bg-card:       #18181b;
-  --bg-inner:      #1c1c1e;
-  --bg-hover:      #27272a;
-  --border-color:  #27272a;
-  --border-muted:  #3f3f46;
-  --text-primary:  #e4e4e7;
-  --text-bright:   #fafafa;
-  --text-muted:    #a1a1aa;
-  --text-subtle:   #71717a;
-  --text-faint:    #52525b;
-  --shadow:        0 2px 12px rgba(0,0,0,.4);
-}
-
-/* =====================================================
-   亮色模式 — html.light 时生效
-   ===================================================== */
 html.light {
   --bg-page:       #f4f4f5;
   --bg-card:       #ffffff;
@@ -33,6 +22,24 @@ html.light {
   --text-subtle:   #71717a;
   --text-faint:    #a1a1aa;
   --shadow:        0 2px 12px rgba(0,0,0,.08);
+}
+
+/* =====================================================
+   暗色模式 — html.dark 时生效
+   ===================================================== */
+html.dark {
+  --bg-page:       #0f0f12;
+  --bg-card:       #18181b;
+  --bg-inner:      #1c1c1e;
+  --bg-hover:      #27272a;
+  --border-color:  #27272a;
+  --border-muted:  #3f3f46;
+  --text-primary:  #e4e4e7;
+  --text-bright:   #fafafa;
+  --text-muted:    #a1a1aa;
+  --text-subtle:   #71717a;
+  --text-faint:    #52525b;
+  --shadow:        0 2px 12px rgba(0,0,0,.4);
 }
 
 /* ── 通用基础 ── */
@@ -50,12 +57,13 @@ html.light .drama-canvas-page {
   color: var(--text-primary);
 }
 
-/* header */
-html.light .header {
+/* header —— 收窄到 .app-header：.header/.logo 为裸类名，全局生效会误伤
+   后续新增的同名类；.page-title 仍保留全局（FreeCreate/MediaLibrary 也在用） */
+html.light .app-header {
   background: var(--bg-card) !important;
   border-bottom-color: var(--border-color) !important;
 }
-html.light .logo { color: var(--text-bright) !important; }
+html.light .app-header .logo { color: var(--text-bright) !important; }
 html.light .page-title { color: var(--text-muted) !important; }
 
 /* card / section */
@@ -162,6 +170,60 @@ html.light {
   --el-mask-color: rgba(255,255,255,.7);
 }
 
+/* =====================================================
+   Element Plus 暗色映射（与上方 html.light 块对称）
+   依赖 main.js 中 theme.css 在 EP 样式之后引入：
+   同为 html.dark 特异性时，靠源码顺序覆盖 EP 的暗色默认值。
+   ===================================================== */
+html.dark {
+  --el-bg-color: var(--bg-card);
+  --el-bg-color-page: var(--bg-page);
+  --el-bg-color-overlay: var(--bg-inner);
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-primary);
+  --el-text-color-secondary: var(--text-muted);
+  --el-text-color-placeholder: var(--text-faint);
+  --el-border-color: var(--border-color);
+  --el-border-color-light: var(--border-muted);
+  --el-border-color-lighter: var(--border-muted);
+  --el-fill-color: var(--bg-inner);
+  --el-fill-color-blank: var(--bg-card);
+  --el-fill-color-light: var(--bg-hover);
+  --el-fill-color-lighter: var(--bg-hover);
+  --el-mask-color: rgba(0, 0, 0, .7);
+}
+
+/* 暗色主色统一为紫色系（亮色见下方 html.light 块）
+   暗底需提亮：primary 用 #a78bfa；light-N 向背景混合故更暗，dark-2 更亮 */
+html.dark {
+  --el-color-primary: #a78bfa;
+  --el-color-primary-light-3: #8b5cf6;
+  --el-color-primary-light-5: #7c3aed;
+  --el-color-primary-light-7: #6d28d9;
+  --el-color-primary-light-8: #5b21b6;
+  --el-color-primary-light-9: #4c1d95;
+  --el-color-primary-dark-2: #c4b5fd;
+}
+
+/* =====================================================
+   设计令牌（只增不改，供新增样式使用）
+   --radius-sm 取 6px：按钮/输入框的 8px 已由既有规则固定，
+   令牌不用于回改既有值，避免明暗圆角不一致。
+   ===================================================== */
+:root {
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, .08);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, .12);
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+}
+
 html.light .el-card,
 html.light .el-dialog {
   background: var(--bg-card) !important;
@@ -264,15 +326,15 @@ html.light .el-card {
   border-radius: 14px !important;
 }
 
-/* 页面标题区美化 */
-html.light .header {
+/* 页面标题区美化（同样收窄到 .app-header） */
+html.light .app-header {
   background: linear-gradient(135deg, #ffffff 0%, #faf9ff 100%) !important;
   border-bottom: 1px solid #e8e8ef !important;
   box-shadow: 0 1px 8px rgba(0,0,0,.05) !important;
 }
 
 /* Logo 加紫色渐变 */
-html.light .logo {
+html.light .app-header .logo {
   background: linear-gradient(135deg, #7c3aed, #a78bfa) !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
@@ -481,4 +543,49 @@ html.dark .el-message--error {
 }
 html.light .el-message--error {
   box-shadow: 0 4px 20px rgba(245, 108, 108, 0.18);
+}
+
+/* =====================================================
+   全局 Element Plus 观感统一（明暗通用）
+   圆角统一取 8px —— 与现有 html.light 的 8px 保持一致
+   （theme.css 的 html.light .el-button / .el-input__wrapper /
+     .el-textarea__wrapper / .el-radio-button__inner 四处 !important）
+   故此处不加 !important，也不改既有规则：明暗自然对齐。
+   ===================================================== */
+.el-button { border-radius: 8px; }
+.el-input__wrapper,
+.el-textarea__wrapper { border-radius: 8px; }
+.el-dialog { border-radius: 14px; }
+.el-card { border-radius: 10px; }
+.el-select-dropdown,
+.el-popper.is-light { border-radius: 10px; }
+.el-table { border-radius: 10px; overflow: hidden; }
+.el-tag { border-radius: 6px; }
+.el-message-box { border-radius: 14px; }
+
+/* =====================================================
+   画布侧栏下拉面板 popper（全局）
+   原先 CanvasAssetPanel.vue 与 CanvasStoryboardPanel.vue 各自写了一份
+   完全相同的非 scoped 规则，两处加载顺序会影响结果。此处合并为单一来源。
+   popper 由 EP teleport 到 body，故必须用全局规则（scoped 命不中）。
+   ===================================================== */
+.canvas-panel-popper {
+  z-index: 4000 !important;
+}
+.canvas-panel-popper.el-select__popper .el-select-dropdown__wrap {
+  max-height: 168px !important;
+}
+
+/* =====================================================
+   FreeCreate / MediaLibrary 的页头兜底（明暗通用）
+   两页用 .page-header 而非 .header，scoped 里只有 flex 布局，
+   故此处只补 scoped 未定义的视觉属性；scoped 带 [data-v-*] 属性
+   选择器优先级更高，其 display/justify-content/margin-bottom 仍胜出。
+   注意：这两页 scoped 硬编码了亮色底（#f5f7fa）且无暗色覆盖，
+   若此处加 background 会在暗色下形成"亮页上的暗条"，故只补
+   padding 与 border-bottom，不加 background。
+   ===================================================== */
+.page-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
 }

@@ -1,12 +1,12 @@
 <template>
   <div class="film-create" :class="{ 'sidebar-collapsed': navCollapsed }">
     <!-- 顶部 -->
-    <header class="header">
-      <div class="header-inner">
-        <h1 class="logo" @click="goList">
-          <span class="logo-main">本地短剧助手</span>
-          <span class="logo-sub">LocalMiniDrama</span>
-        </h1>
+    <AppHeader
+      :logo-click="goList"
+      :z-index="200"
+      :offset-left="navCollapsed ? '48px' : '180px'"
+    >
+      <template #center>
         <span class="breadcrumb-sep">›</span>
         <span class="page-title">{{ dramaId ? (store.drama?.title || '项目') : '新建故事' }}</span>
         <el-select
@@ -34,17 +34,14 @@
           <el-icon><Grid /></el-icon>
           画布模式
         </el-button>
-        <div class="header-actions">
-          <el-button class="btn-theme" :title="isDark ? '切换到浅色模式' : '切换到暗色模式'" @click="toggleTheme">
-            <el-icon><Sunny v-if="isDark" /><Moon v-else /></el-icon>
-            {{ isDark ? '浅色' : '暗色' }}
-          </el-button><el-button class="btn-ai-config" @click="showAiConfigDialog = true">
-            <el-icon><Setting /></el-icon>
-            AI配置
-          </el-button>
-        </div>
-      </div>
-    </header>
+      </template>
+      <template #actions>
+        <el-button class="btn-ai-config" @click="showAiConfigDialog = true">
+          <el-icon><Setting /></el-icon>
+          AI配置
+        </el-button>
+      </template>
+    </AppHeader>
 
     <!-- 左侧固定侧边栏 -->
     <nav class="quick-nav" :class="{ collapsed: navCollapsed }" aria-label="快捷导航">
@@ -2593,7 +2590,7 @@
               <el-icon class="el-icon--upload"><DocumentAdd /></el-icon>
               <div class="el-upload__text">拖拽 .txt / .md 文件到此处，或<em>点击上传</em></div>
             </el-upload>
-            <div v-if="novelFileName" style="margin-top:8px;font-size:13px;color:#409eff">已选择：{{ novelFileName }}</div>
+            <div v-if="novelFileName" style="margin-top:8px;font-size:13px;color:var(--el-color-primary)">已选择：{{ novelFileName }}</div>
           </el-tab-pane>
         </el-tabs>
         <div class="novel-import-options" style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -2633,8 +2630,8 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, reactive, nextTick } 
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Setting, Plus, Minus, Sunny, Moon, MagicStick, Upload, Delete, Check, Loading, WarningFilled, User, Box, Picture, Film, VideoCamera, Document, InfoFilled, Refresh, ZoomIn, QuestionFilled, DocumentAdd, Expand, Fold, VideoPlay, Grid, Close } from '@element-plus/icons-vue'
-import { useTheme } from '@/composables/useTheme'
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Setting, Plus, Minus, MagicStick, Upload, Delete, Check, Loading, WarningFilled, User, Box, Picture, Film, VideoCamera, Document, InfoFilled, Refresh, ZoomIn, QuestionFilled, DocumentAdd, Expand, Fold, VideoPlay, Grid, Close } from '@element-plus/icons-vue'
+import AppHeader from '@/components/AppHeader.vue'
 import { useFilmStore } from '@/stores/film'
 import { useGenerationTaskStore, GEN_RESOURCE } from '@/stores/generationTaskStore'
 import { syncGeneratingSetsFromStore, buildEpisodeContext, buildExtractTaskMeta, isEpisodeExtractRunning } from '@/composables/useGenerationTaskSync'
@@ -2676,7 +2673,6 @@ const route = useRoute()
 const router = useRouter()
 const store = useFilmStore()
 const genStore = useGenerationTaskStore()
-const { isDark, toggle: toggleTheme } = useTheme()
 const { videoResolution: storeVideoResolution } = storeToRefs(store)
 
 // ── Composable: Navigation ─────────────────────────────
@@ -8327,69 +8323,11 @@ html.light .film-create {
     radial-gradient(ellipse 50% 40% at 85% 110%, rgba(99, 102, 241, 0.06) 0%, transparent 50%);
   color: #1e1b4b;
 }
-.header {
-  background: rgba(20, 21, 28, 0.78);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 10px 28px;
-  position: sticky;
-  top: 0;
-  z-index: 200;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15), 0 4px 20px rgba(0, 0, 0, 0.2);
-  margin-left: 180px;
-  transition: margin-left 0.25s cubic-bezier(.4,0,.2,1);
-}
+/* .header / .header-inner / .logo* / .header-actions / .btn-theme 已迁移至 AppHeader.vue
+   （公共类边界）。AppHeader 根元素仍保留 .header 类名，故下方
+   .sidebar-collapsed 联动与 @media 的裸 .header 选择器继续生效。 */
 .sidebar-collapsed .header {
   margin-left: 48px;
-}
-html.light .header {
-  background: rgba(255, 255, 255, 0.82) !important;
-  border-bottom-color: rgba(139, 92, 246, 0.1) !important;
-  box-shadow: 0 1px 0 rgba(139,92,246,0.06), 0 4px 20px rgba(139, 92, 246, 0.05) !important;
-}
-.header-inner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.logo {
-  margin: 0;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  line-height: 1;
-  transition: filter 0.3s;
-}
-.logo:hover { filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.5)); }
-.logo-main {
-  font-size: 1.05rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, #d0d5e8 0%, #a8b0cc 50%, #8890b0 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -0.01em;
-  filter: drop-shadow(0 0 8px rgba(160, 170, 200, 0.15));
-}
-.logo-sub {
-  font-size: 0.65rem;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  color: #52525e;
-  -webkit-text-fill-color: #52525e;
-  text-transform: uppercase;
-}
-html.light .logo-main {
-  background: linear-gradient(135deg, #6d28d9, #4f46e5);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-html.light .logo-sub {
-  color: #9ca3af;
-  -webkit-text-fill-color: #9ca3af;
 }
 .breadcrumb-sep {
   color: #3a3a44;
@@ -8422,29 +8360,6 @@ html.light .page-title {
 }
 .btn-back-drama {
   flex-shrink: 0;
-}
-.header-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.btn-theme {
-  --el-button-bg-color: rgba(255, 255, 255, 0.04);
-  --el-button-border-color: rgba(255, 255, 255, 0.08);
-  --el-button-text-color: #8b8b96;
-  --el-button-hover-bg-color: rgba(255, 255, 255, 0.08);
-  --el-button-hover-border-color: rgba(255, 255, 255, 0.18);
-  --el-button-hover-text-color: #c8c8d0;
-  transition: all 0.2s ease;
-}
-html.light .btn-theme {
-  --el-button-bg-color: rgba(99, 102, 241, 0.04);
-  --el-button-border-color: rgba(99, 102, 241, 0.12);
-  --el-button-text-color: #6b7280;
-  --el-button-hover-bg-color: rgba(99, 102, 241, 0.08);
-  --el-button-hover-border-color: rgba(99, 102, 241, 0.3);
-  --el-button-hover-text-color: #4f46e5;
 }
 /* ===== 左侧固定侧边栏 ===== */
 .quick-nav {
@@ -9175,7 +9090,7 @@ html.light .section-title { color: #1e1b4b; }
   transition: border-color 0.2s;
 }
 .ref-image-box:hover {
-  border-color: #409eff;
+  border-color: var(--el-color-primary);
 }
 .ref-preview-img {
   width: 100%;
@@ -10260,7 +10175,7 @@ html.light .sb-video-placeholder {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #409eff;
+  color: var(--el-color-primary);
   font-size: 0.85rem;
 }
 .sb-video-error {
