@@ -1,11 +1,10 @@
 <template>
   <div
-    class="canvas-node-panel sb-panel nodrag nopan nowheel"
+    class="canvas-node-panel sb-panel nodrag nopan"
     @pointerdown.stop
     @mousedown.stop
     @click.stop
     @mouseup.stop
-    @wheel.stop
   >
     <div class="panel-head">
       <span>分镜 #{{ storyboard?.storyboard_number ?? storyboard?.id }}</span>
@@ -105,7 +104,7 @@
             v-model="form.universal_segment_text"
             type="textarea"
             :rows="2"
-            resize="vertical"
+            resize="vertical" class="nowheel"
             placeholder="全能模式片段描述"
           />
         </el-form-item>
@@ -114,7 +113,7 @@
             v-model="form.video_prompt"
             type="textarea"
             :rows="2"
-            resize="vertical"
+            resize="vertical" class="nowheel"
             placeholder="生视频提示词"
           />
         </el-form-item>
@@ -126,7 +125,7 @@
               v-model="form.action"
               type="textarea"
               :rows="2"
-              resize="vertical"
+              resize="vertical" class="nowheel"
               placeholder="画面动作"
             />
           </el-form-item>
@@ -135,7 +134,7 @@
               v-model="form.dialogue"
               type="textarea"
               :rows="2"
-              resize="vertical"
+              resize="vertical" class="nowheel"
               placeholder="角色对白"
             />
           </el-form-item>
@@ -145,7 +144,7 @@
             v-model="form.image_prompt"
             type="textarea"
             :rows="2"
-            resize="vertical"
+            resize="vertical" class="nowheel"
             placeholder="图片提示词"
           />
         </el-form-item>
@@ -154,7 +153,7 @@
             v-model="form.video_prompt"
             type="textarea"
             :rows="2"
-            resize="vertical"
+            resize="vertical" class="nowheel"
             placeholder="视频提示词"
           />
         </el-form-item>

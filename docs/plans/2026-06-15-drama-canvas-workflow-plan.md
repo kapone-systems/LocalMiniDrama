@@ -166,7 +166,8 @@
 | 左键在**空白处**拖拽 | 框选多个分镜 |
 | Ctrl + 点击分镜 | 多选 / 取消选择 |
 | 中键 / 右键拖拽 | 平移画布 |
-| 滚轮 | 缩放 |
+| 滚轮 | 缩放（0.05×～4×） |
+| 右上角 − / + | 缩小 / 放大；点中间百分比恢复 100% |
 | 单击节点 | 展开下方操作面板 |
 | 单击空白 | 关闭操作面板 |
 | 双击分镜 | 跳转列表模式并定位 |
@@ -236,12 +237,18 @@ backend-node/src/services/
 <VueFlow
   :selection-key-code="true"
   :pan-on-drag="[1, 2]"
-  :pan-on-scroll="true"
+  :pan-on-scroll="false"
+  :zoom-on-scroll="true"
+  :min-zoom="0.05"
+  :max-zoom="4"
   :elements-selectable="true"
 />
 ```
 
 > **勿使用** 已废弃的 `selection-on-drag`（@vue-flow/core 1.41+ 已移除，配置了也不生效）。
+
+> **勿设** `:pan-on-scroll="true"`：该选项会让滚轮走平移分支，滚轮缩放随之失效（只剩 Ctrl+滚轮）。
+> 平移请用中键/右键拖拽（`:pan-on-drag="[1, 2]"`）。
 
 ---
 

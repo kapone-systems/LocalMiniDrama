@@ -1,12 +1,11 @@
 <template>
   <div
-    class="canvas-node-panel media-panel nodrag nopan nowheel"
+    class="canvas-node-panel media-panel nodrag nopan"
     :class="'kind-' + kind"
     @pointerdown.stop
     @mousedown.stop
     @click.stop
     @mouseup.stop
-    @wheel.stop
   >
     <div class="panel-head">
       <span>{{ kindTitle }}</span>
@@ -18,12 +17,12 @@
 
     <div class="panel-body">
       <template v-if="kind === 'text'">
-        <p class="summary">{{ summary || '暂无脚本内容' }}</p>
+        <p class="summary nowheel">{{ summary || '暂无脚本内容' }}</p>
         <el-button size="small" type="primary" plain @click.stop="focusStoryboard">编辑脚本</el-button>
       </template>
 
       <template v-else-if="kind === 'universal'">
-        <p class="summary">{{ summary || '暂无全能分镜词' }}</p>
+        <p class="summary nowheel">{{ summary || '暂无全能分镜词' }}</p>
         <div class="panel-actions">
           <el-button size="small" plain @click.stop="focusStoryboard">编辑</el-button>
           <el-button size="small" type="primary" :loading="busy" @click.stop="runStep('video')">重新生视频</el-button>
@@ -41,7 +40,7 @@
 
       <template v-else-if="kind === 'video'">
         <div class="preview-wrap">
-          <video v-if="url && !busy" :src="url" class="preview-vid" controls playsinline />
+          <video v-if="url && !busy" :src="url" class="preview-vid nowheel" controls playsinline />
           <div v-else-if="!busy" class="preview-empty">无视频</div>
           <div v-if="busy" class="preview-loading"><span class="spinner" />生视频中…</div>
         </div>
@@ -50,7 +49,7 @@
 
       <template v-else-if="kind === 'audio'">
         <div class="audio-label">{{ audioType === 'narration' ? '旁白音频' : '对白音频' }}</div>
-        <audio v-if="url" :src="url" controls class="preview-aud" />
+        <audio v-if="url" :src="url" controls class="preview-aud nowheel" />
         <el-button size="small" type="warning" :loading="busy" @click.stop="runStep('audio')">重新配音</el-button>
       </template>
     </div>

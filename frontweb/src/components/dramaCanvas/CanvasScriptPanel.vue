@@ -1,11 +1,10 @@
 <template>
   <div
-    class="canvas-node-panel script-panel nodrag nopan nowheel"
+    class="canvas-node-panel script-panel nodrag nopan"
     @pointerdown.stop
     @mousedown.stop
     @click.stop
     @mouseup.stop
-    @wheel.stop
   >
     <div class="panel-head">
       <span>剧本 · 第 {{ episode?.episode_number ?? '?' }} 集</span>
@@ -28,7 +27,7 @@
           :rows="6"
           resize="vertical"
           placeholder="在此粘贴或编写本集剧本…"
-          class="script-textarea"
+          class="script-textarea nowheel"
         />
       </el-form-item>
     </el-form>

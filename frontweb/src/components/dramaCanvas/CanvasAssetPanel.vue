@@ -1,12 +1,11 @@
 <template>
   <div
-    class="canvas-node-panel asset-panel nodrag nopan nowheel"
+    class="canvas-node-panel asset-panel nodrag nopan"
     :class="'kind-' + kind"
     @pointerdown.stop
     @mousedown.stop
     @click.stop
     @mouseup.stop
-    @wheel.stop
   >
     <div class="panel-head">
       <span>{{ kindLabel }}</span>
@@ -52,7 +51,7 @@
                 v-model="form.appearance"
                 type="textarea"
                 :rows="2"
-                resize="vertical"
+                resize="vertical" class="nowheel"
                 placeholder="外貌描述"
               />
             </el-form-item>
@@ -61,7 +60,7 @@
                 v-model="form.description"
                 type="textarea"
                 :rows="2"
-                resize="vertical"
+                resize="vertical" class="nowheel"
                 placeholder="角色简介"
               />
             </el-form-item>
@@ -81,7 +80,7 @@
                 v-model="form.prompt"
                 type="textarea"
                 :rows="2"
-                resize="vertical"
+                resize="vertical" class="nowheel"
                 placeholder="场景描述"
               />
             </el-form-item>
@@ -96,7 +95,7 @@
                 v-model="form.description"
                 type="textarea"
                 :rows="2"
-                resize="vertical"
+                resize="vertical" class="nowheel"
                 placeholder="道具描述"
               />
             </el-form-item>
@@ -105,7 +104,7 @@
                 v-model="form.prompt"
                 type="textarea"
                 :rows="2"
-                resize="vertical"
+                resize="vertical" class="nowheel"
                 placeholder="生图提示词"
               />
             </el-form-item>

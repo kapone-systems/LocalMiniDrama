@@ -207,13 +207,15 @@
           v-model:edges="edges"
           :node-types="nodeTypes"
           :default-viewport="initialViewport"
-          :min-zoom="0.08"
-          :max-zoom="2"
+          :min-zoom="CANVAS_MIN_ZOOM"
+          :max-zoom="CANVAS_MAX_ZOOM"
           :nodes-connectable="false"
           :elements-selectable="true"
           :selection-key-code="true"
           :pan-on-drag="[1, 2]"
-          :pan-on-scroll="true"
+          :pan-on-scroll="false"
+          :zoom-on-scroll="true"
+          :zoom-on-pinch="true"
           :fit-view-on-init="!hasSavedViewport"
           class="vue-flow-canvas"
           @node-double-click="onNodeDoubleClick"
@@ -227,11 +229,11 @@
         >
           <CanvasFlowAligner />
           <Background pattern-color="#3f3f46" :gap="20" />
-          <Controls />
           <MiniMap pannable zoomable />
         </VueFlow>
         <el-empty v-else-if="!loading" description="暂无画布数据" />
         <CanvasFloatingToolbar v-if="drama && nodes.length" />
+        <CanvasZoomControls v-if="drama && nodes.length" />
       </div>
     </div>
 
@@ -255,14 +257,12 @@ import { computed, markRaw, nextTick, onBeforeUnmount, provide, ref, watch } fro
 import { useRoute, useRouter } from 'vue-router'
 import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
-import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
 import { List, Plus, Grid } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
-import '@vue-flow/controls/dist/style.css'
 import '@vue-flow/minimap/dist/style.css'
 
 import { dramaAPI } from '@/api/drama'
@@ -282,6 +282,8 @@ import {
   stampEdgeBaseStyles,
 } from '@/utils/dramaCanvasAdapter'
 import {
+  CANVAS_MAX_ZOOM,
+  CANVAS_MIN_ZOOM,
   buildCanvasLayoutPayload,
   parseCanvasLayout,
   parseDramaMetadata,
@@ -309,6 +311,7 @@ import CanvasContextMenu from '@/components/dramaCanvas/CanvasContextMenu.vue'
 import CanvasAddButtonNode from '@/components/dramaCanvas/CanvasAddButtonNode.vue'
 import CanvasFloatingToolbar from '@/components/dramaCanvas/CanvasFloatingToolbar.vue'
 import CanvasFlowAligner from '@/components/dramaCanvas/CanvasFlowAligner.vue'
+import CanvasZoomControls from '@/components/dramaCanvas/CanvasZoomControls.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -511,6 +514,8 @@ provide(CANVAS_CONTEXT_KEY, {
   nodeStatus,
   openCreateDialog: (...args) => openCreateDialog(...args),
   scriptActions: scriptActionsHolder,
+  currentViewport,
+  canvasFlowApi,
   registerCanvasFlowApi: (api) => {
     canvasFlowApi.value = api
   },
@@ -1075,17 +1080,6 @@ onBeforeUnmount(() => {
 :deep(.vue-flow__minimap) {
   background: rgba(24, 24, 27, 0.92);
   border: 1px solid #3f3f46;
-}
-
-:deep(.vue-flow__controls) {
-  box-shadow: none;
-  border: 1px solid #3f3f46;
-}
-
-:deep(.vue-flow__controls button) {
-  background: #18181b;
-  border-color: #3f3f46;
-  color: #e4e4e7;
 }
 
 :deep(.vue-flow__node.selected) {

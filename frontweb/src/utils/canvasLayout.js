@@ -39,6 +39,9 @@ export function resolveNodePosition(savedLayout, nodeId, fallback) {
   return fallback
 }
 
+export const CANVAS_MIN_ZOOM = 0.05
+export const CANVAS_MAX_ZOOM = 4
+
 export function resolveViewport(savedLayout, fallback = { x: 0, y: 0, zoom: 0.75 }) {
   const v = savedLayout?.viewport
   if (v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.zoom)) {
