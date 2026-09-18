@@ -20,8 +20,8 @@ tools: [http, memory]
 requiredContext:
   - drama_id
   - episode_id
-author: xuanyustudio
-homepage: https://github.com/xuanyustudio/LocalMiniDrama
+author: kapone-systems
+homepage: https://github.com/kapone-systems/LocalMiniDrama
 ---
 
 # LocalMiniDrama 本地短剧助手

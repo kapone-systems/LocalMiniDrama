@@ -25,3 +25,7 @@ frontweb-edu
 .superpowers
 build_edu
 node_modules
+
+# ffmpeg / ffprobe 各约 95MB，不入库；用 `node scripts/fetch-ffmpeg.js` 获取，
+# 发布包在构建时由 CI 下载并打进 extraResources。
+backend-node/tools/ffmpeg/*.exe

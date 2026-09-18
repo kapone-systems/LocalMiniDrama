@@ -3,7 +3,8 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'   # 推送 vX.X.X 格式的 tag 时触发
+      - 'v[0-9]+.[0-9]+.[0-9]+'   # 仅匹配 vX.X.X（不含 -suffix，避免误触发）
+  workflow_dispatch:              # 允许手动触发
 
 permissions:
   contents: write
@@ -16,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true   # 示例工程与演示视频走 LFS，不拉取会得到指针文件
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -24,10 +27,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: desktop/package-lock.json
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+      # ffmpeg / ffprobe 各约 95MB，不入库；此处下载后由 extraResources 打进安装包
+      - name: Fetch ffmpeg & ffprobe
+        run: node scripts/fetch-ffmpeg.js
 
       - name: Install frontend dependencies
         working-directory: frontweb
@@ -57,14 +59,25 @@ jobs:
         working-directory: desktop
         run: node scripts/copy-backend.js
 
-      # 标准版（含示例数据）
+      # 标准版（含示例项目）
       - name: Build Standard Installer
         working-directory: desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win --publish never
 
-      - name: Upload Standard Build Artifacts
+      - name: Clean unpacked output
+        working-directory: desktop
+        run: npm run clean:unpacked
+
+      # Lite 版（不含示例项目）
+      - name: Build Lite Installer
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --config electron-builder-lite.json --publish never
+
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-release

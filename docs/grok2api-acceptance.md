@@ -277,7 +277,7 @@ ghcr.io/chenyme/grok2api:latest   Up (healthy)   0.0.0.0:8000->8000/tcp   grok2a
 | 项 | 值 |
 |---|---|
 | 镜像 | `ghcr.io/chenyme/grok2api:latest` |
-| 配置 | `C:\Users\Lenovo\.zcode\workspace\default\grok2api\config.yaml` |
+| 配置 | `./config.yaml`（grok2api 服务端配置文件） |
 | 账号池 | 1 个邮箱的三种关联账号：`grok_web`(Web/heavy) + `grok_console`(Console) + `grok_build`(Build) |
 | 客户端 Key | 通过管理 API `GET /api/admin/v1/client-keys/2/secret` 取回 |
 

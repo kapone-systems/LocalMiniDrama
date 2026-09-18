@@ -2,9 +2,34 @@
 
 所有版本的重要改动记录在此文件中，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
-**官方仓库：**
-[![GitHub](https://img.shields.io/badge/GitHub-xuanyustudio%2FLocalMiniDrama-181717?logo=github)](https://github.com/xuanyustudio/LocalMiniDrama)
-[![Gitee](https://img.shields.io/badge/Gitee-bi__shang__a%2Flocalminidrama-C71D23?logo=gitee)](https://gitee.com/bi_shang_a/localminidrama)
+**本仓库（grok2api 结合版）：**
+[![GitHub](https://img.shields.io/badge/GitHub-kapone--systems%2FLocalMiniDrama-181717?logo=github)](https://github.com/kapone-systems/LocalMiniDrama)
+
+> 本仓库是 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) 与 [grok2api](https://github.com/chenyme/grok2api) 的结合版。
+> 1.2.8 及更早的条目记录的是**上游原项目**的历史，版权归原作者所有。
+
+---
+
+## [1.2.9] - 2026-09-18
+
+本版本为 **LocalMiniDrama × grok2api 结合版**的首个独立发布。
+
+### 新增
+
+- **grok2api 接入**：新增 `grok2api` 接口协议，覆盖图片、视频、文本三类服务；AI 配置页提供 grok2api 厂商预设与中转站配置示例
+- **连接自检**：grok2api 的「测试连接」会真实校验模型可用性，而非仅探测端点存活
+- **验收文档**：新增 [grok2api 契约](docs/grok2api-contract.md) 与 [验收记录](docs/grok2api-acceptance.md)，记录协议对接细节与实测结果
+
+### 优化
+
+- **TTS / URL 处理**：修正配置的 endpoint 未被尊重、以及 `/v1` 前缀重复拼接的问题
+- **打包产物命名**：修复 NSIS 安装包与便携版争用同一文件名的问题；产物名统一带 `grok2api` 标识，与上游版本区分
+
+### 变更
+
+- **独立发布**：本仓库提供自己的 Release 下载，版本号从上游 1.2.8 起独立演进
+- **移除内置联系方式**：移除了上游作者的微信/赞赏二维码及个人微信号，问题反馈统一走本仓库 Issues
+- **构建依赖调整**：ffmpeg / ffprobe（各约 95MB）不再纳入版本控制，改由 `node scripts/fetch-ffmpeg.js` 按需获取；发布安装包在构建时自动内置
 
 ---
 

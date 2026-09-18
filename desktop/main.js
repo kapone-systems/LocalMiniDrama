@@ -111,41 +111,35 @@ function ensureBackendCwd(backendCwd) {
 function ensureFfmpeg(backendCwd) {
   if (!app.isPackaged) return;
   const isWin = process.platform === 'win32';
-  const ffmpegName = isWin ? 'ffmpeg.exe' : 'ffmpeg';
-  const ffprobeName = isWin ? 'ffprobe.exe' : 'ffprobe';
+  const binaries = isWin ? ['ffmpeg.exe', 'ffprobe.exe'] : ['ffmpeg', 'ffprobe'];
 
   const destDir = path.join(backendCwd, 'tools', 'ffmpeg');
-  const destFfmpeg = path.join(destDir, ffmpegName);
-
-  // 已存在则跳过（支持用户手动替换）
-  if (fs.existsSync(destFfmpeg)) {
-    console.log('[ffmpeg] Already exists at', destFfmpeg);
-    return;
-  }
-
   const srcDir = path.join(process.resourcesPath, 'ffmpeg');
-  const srcFfmpeg = path.join(srcDir, ffmpegName);
-  if (!fs.existsSync(srcFfmpeg)) {
-    console.warn(
-      '[ffmpeg] Bundled ffmpeg not found, skipping auto-extract. Expected:',
-      srcFfmpeg,
-      '(打包前请将 ffmpeg.exe 放入 backend-node/tools/ffmpeg，并确保 package.json 的 extraResources 包含该目录)'
-    );
+
+  // 逐个文件判断：已存在则保留（支持用户手动替换版本），缺失才补齐。
+  // 不能因为 ffmpeg 已存在就整体跳过，否则旧版本升级上来的用户永远拿不到 ffprobe。
+  const missing = binaries.filter((name) => !fs.existsSync(path.join(destDir, name)));
+  if (missing.length === 0) {
+    console.log('[ffmpeg] Already present at', destDir);
     return;
   }
 
   try {
     if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-    fs.copyFileSync(srcFfmpeg, destFfmpeg);
-    if (!isWin) fs.chmodSync(destFfmpeg, 0o755);
-
-    const srcFfprobe = path.join(srcDir, ffprobeName);
-    if (fs.existsSync(srcFfprobe)) {
-      const destFfprobe = path.join(destDir, ffprobeName);
-      fs.copyFileSync(srcFfprobe, destFfprobe);
-      if (!isWin) fs.chmodSync(destFfprobe, 0o755);
+    for (const name of missing) {
+      const src = path.join(srcDir, name);
+      if (!fs.existsSync(src)) {
+        console.warn(
+          '[ffmpeg] Bundled binary not found, skipping:', src,
+          '(打包前请将 ffmpeg.exe / ffprobe.exe 放入 backend-node/tools/ffmpeg，并确保 package.json 的 extraResources 包含该目录)'
+        );
+        continue;
+      }
+      const dest = path.join(destDir, name);
+      fs.copyFileSync(src, dest);
+      if (!isWin) fs.chmodSync(dest, 0o755);
     }
-    console.log('[ffmpeg] Auto-extracted to', destDir);
+    console.log('[ffmpeg] Auto-extracted to', destDir, '=>', missing.join(', '));
   } catch (e) {
     console.warn('[ffmpeg] Auto-extract failed:', e.message);
   }

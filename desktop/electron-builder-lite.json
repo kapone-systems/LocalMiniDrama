@@ -31,11 +31,11 @@
     "target": ["nsis", "portable"],
     "icon": null,
     "signAndEditExecutable": false,
-    "artifactName": "${productName}-Lite-${version}.${ext}"
+    "artifactName": "${productName}-Lite-grok2api-${version}.${ext}"
   },
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
-    "artifactName": "${productName}-Lite-Setup-${version}.${ext}"
+    "artifactName": "${productName}-Lite-grok2api-Setup-${version}.${ext}"
   }
 }

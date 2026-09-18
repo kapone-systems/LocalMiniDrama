@@ -1,8 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 💬 微信交流群 / WeChat Group
-    url: https://github.com/xuanyustudio/LocalMiniDrama#-联系--社区
-    about: 扫码加入用户交流群，获取使用帮助 / Scan to join the community group
   - name: 📖 使用文档 / Documentation
-    url: https://github.com/xuanyustudio/LocalMiniDrama/tree/main/docs
-    about: 查阅快速开始、AI配置等文档 / Read quickstart and configuration docs
+    url: https://github.com/kapone-systems/LocalMiniDrama/tree/dev/docs
+    about: 查阅快速开始、AI 配置、grok2api 对接等文档 / Read quickstart and configuration docs
+  - name: 🔌 grok2api 上游项目 / Upstream grok2api
+    url: https://github.com/chenyme/grok2api
+    about: grok2api 服务本身的部署与问题 / Deploying the grok2api service itself
+  - name: 📦 上游原项目 / Upstream LocalMiniDrama
+    url: https://github.com/xuanyustudio/LocalMiniDrama
+    about: 原版 LocalMiniDrama 的功能与下载 / The original LocalMiniDrama project

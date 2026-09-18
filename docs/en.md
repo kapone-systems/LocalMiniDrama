@@ -4,7 +4,7 @@
 
 **A locally-running AI short drama & comic generator — download and run, no cloud required, fully open source**
 
-[![version](https://img.shields.io/badge/version-1.2.8-blue?style=flat-square)](../../releases)
+[![version](https://img.shields.io/badge/version-1.2.9-blue?style=flat-square)](../../releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](../LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](#)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#)
@@ -245,27 +245,6 @@ All contributions are welcome!
 - 💡 **Suggest a feature** → [New Issue](../../issues/new)
 - 🔧 **Submit code** → Fork → Edit → Pull Request
 - ⭐ **Star the project** → Help others discover it
-
----
-
-## ☕ Buy the Author a Coffee
-
-LocalMiniDrama is **free, open source, and runs locally** — maintained in spare time. If it saved you hours or helped ship a short drama, optional tips are warmly appreciated (any amount; totally voluntary).
-
-> Tips do **not** affect features, issues, or PRs. A ⭐ Star or sharing the repo helps just as much.
-
-<table>
-  <tr>
-    <td align="center">
-      <img src="../项目截图/weixinpay.jpg" alt="WeChat Pay tip QR" width="200"/><br/>
-      <sub><b>WeChat Pay</b></sub>
-    </td>
-    <td align="center">
-      <img src="../项目截图/ali.jpg" alt="Alipay tip QR" width="200"/><br/>
-      <sub><b>Alipay</b></sub>
-    </td>
-  </tr>
-</table>
 
 ---
 
