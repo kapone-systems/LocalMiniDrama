@@ -63,6 +63,10 @@ function isMaxTokensParamError(errMsg) {
 async function generateTextForStoryboard(db, log, userPrompt, systemPrompt, options = {}) {
   const { model, streamCallback, temperature = 0.7 } = options;
 
+  // 分镜输出量最大（最长 16384 tokens），推理模型的思考停顿也更长，
+  // 因此显式放宽静默超时，避免生成中途被判定为卡死。
+  const silenceTimeoutMs = Number(options.silence_timeout_ms) > 0 ? Number(options.silence_timeout_ms) : 180000;
+
   // 第一次尝试：带 max_tokens:16384
   log.info('Storyboard generateText attempt 1', { model: model || '(default)', max_tokens: DEFAULT_STORYBOARD_MAX_TOKENS });
   try {
@@ -72,6 +76,7 @@ async function generateTextForStoryboard(db, log, userPrompt, systemPrompt, opti
       temperature,
       max_tokens: DEFAULT_STORYBOARD_MAX_TOKENS,
       streamCallback,
+      silence_timeout_ms: silenceTimeoutMs,
     });
     return text;
   } catch (e) {
@@ -87,6 +92,7 @@ async function generateTextForStoryboard(db, log, userPrompt, systemPrompt, opti
         model: model || undefined,
         temperature,
         streamCallback,
+        silence_timeout_ms: silenceTimeoutMs,
       });
       log.info('Storyboard generateText attempt 2 succeeded');
       return text;

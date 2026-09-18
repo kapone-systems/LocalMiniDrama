@@ -110,13 +110,30 @@ function postJSONWithTimeout(url, headers, body, timeoutMs = 600000) {
   });
 }
 
+// 流式请求的默认静默超时：连续多少毫秒收不到任何数据才判定超时。
+// 推理模型（如 grok-4.6）会先输出 reasoning_content，再长时间静默后才吐正文，
+// 静默间隔可能超过 1 分钟，因此默认值放宽到 120 秒；长文本任务可再单独加大。
+const DEFAULT_STREAM_SILENCE_MS = 120000;
+
+/**
+ * 解析本次请求实际生效的静默超时。
+ * 调用方传了合法正数就用它，否则回退到 fallback（默认 DEFAULT_STREAM_SILENCE_MS）。
+ * 传 0 / 负数 / 非数字都视为未设置，避免误配成「立刻超时」。
+ */
+function resolveSilenceTimeoutMs(options = {}, fallback = DEFAULT_STREAM_SILENCE_MS) {
+  const raw = options.silence_timeout_ms;
+  if (raw == null) return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 /**
  * 用 SSE 流式输出（stream: true）请求 OpenAI 兼容接口。
  * 流式模式下 socket 每收到一个 token 就重置静默计时器，只要模型在生成就不会超时，
  * 彻底解决分镜等长耗时任务的 "fetch failed / timeout" 问题。
- * silenceTimeoutMs：连续多少毫秒无任何数据才判定超时（默认 60 秒）。
+ * silenceTimeoutMs：连续多少毫秒无任何数据才判定超时（默认见 DEFAULT_STREAM_SILENCE_MS）。
  */
-function postJSONStream(url, headers, body, silenceTimeoutMs = 60000, onProgress = null) {
+function postJSONStream(url, headers, body, silenceTimeoutMs = DEFAULT_STREAM_SILENCE_MS, onProgress = null) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
     const mod = parsed.protocol === 'https:' ? https : http;
@@ -262,6 +279,7 @@ function getConfigFromModelMap(db, sceneKey) {
 
 async function generateText(db, log, serviceType, userPrompt, systemPrompt, options = {}) {
   const { model: preferredModel, temperature = 0.7, json_mode = false, min_max_tokens = null, streamCallback = null, scene_key = null } = options;
+  const silenceMs = resolveSilenceTimeoutMs(options);
 
   // F2: 若传入 scene_key，优先从 ai_model_map 查找对应的模型路由配置
   let config = null;
@@ -342,8 +360,8 @@ async function generateText(db, log, serviceType, userPrompt, systemPrompt, opti
   };
   body = applyDeepSeekChatOptions(config, body);
   const startMs = Date.now();
-  log.info('AI generateText request', { url: url.slice(0, 60), model, max_tokens: finalMaxTokens ?? '(model default)', json_mode, stream: true });
-  const res = await postJSONStream(url, { Authorization: 'Bearer ' + (config.api_key || '') }, body, 60000, (receivedLen, event, accumulated) => {
+  log.info('AI generateText request', { url: url.slice(0, 60), model, max_tokens: finalMaxTokens ?? '(model default)', json_mode, stream: true, silence_timeout_ms: silenceMs });
+  const res = await postJSONStream(url, { Authorization: 'Bearer ' + (config.api_key || '') }, body, silenceMs, (receivedLen, event, accumulated) => {
     if (event === 'first_token') {
       log.info('AI stream first token', { model, ttft_ms: Date.now() - startMs });
     } else if (receivedLen > 0 && receivedLen % 500 < 20) {
@@ -437,7 +455,7 @@ async function streamGenerateText(db, log, serviceType, userPrompt, systemPrompt
     ...(json_mode ? { response_format: { type: 'json_object' } } : {}),
   };
   body = applyDeepSeekChatOptions(config, body);
-  const silenceMs = options.silence_timeout_ms != null ? Number(options.silence_timeout_ms) : 120000;
+  const silenceMs = resolveSilenceTimeoutMs(options);
   const startMs = Date.now();
   log.info('AI streamGenerateText request', {
     url: url.slice(0, 60),
@@ -714,4 +732,6 @@ module.exports = {
   EXTRACT_PROMPTS,
   isRefusalResponse,
   postJSONWithTimeout,
+  DEFAULT_STREAM_SILENCE_MS,
+  resolveSilenceTimeoutMs,
 };

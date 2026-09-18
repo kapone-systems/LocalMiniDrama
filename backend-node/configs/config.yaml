@@ -27,6 +27,10 @@ ai:
   default_text_provider: openai
   default_image_provider: openai
   default_video_provider: doubao
+  # 剧本生成的流式静默超时（毫秒）：连续多久收不到数据才判定超时。
+  # 推理模型（如 grok-4.6）会先输出思考过程，再长时间静默后才吐正文，实测停顿可达 120 秒，
+  # 因此默认放宽到 180 秒。省略或 ≤0 时使用该默认值。
+  story_generation_silence_timeout_ms: 180000
 style:
   default_style: ''
   default_role_style: full body and face clearly visible, character centered, consistent facial features, high detail, masterpiece, best quality

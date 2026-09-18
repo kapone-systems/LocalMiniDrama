@@ -23,6 +23,11 @@ async function generateStory(db, log, body) {
   // 不使用 max_tokens 硬上限，而是用 min_max_tokens 确保即使用户 AI 配置了小上限也能保证基本输出量。
   const minTokensNeeded = Math.max(2000, episodeCount * 2200);
 
+  // 推理模型（如 grok-4.6）会先输出思考过程，再长时间静默后才吐正文，
+  // 实测静默间隔可达 120 秒，因此这里显式放宽静默超时；可用配置覆盖。
+  const configuredSilence = Number(cfg?.ai?.story_generation_silence_timeout_ms);
+  const silenceTimeoutMs = configuredSilence > 0 ? configuredSilence : 180000;
+
   // 注意：不使用 json_mode=true，因为 response_format:json_object 要求返回 JSON 对象而非数组，
   // 会导致模型将数组包成 {"episodes":[...]} 对象，破坏解析逻辑。依靠 prompt 本身约束格式即可。
   const rawText = await aiClient.generateText(db, log, 'text', userPrompt, systemPrompt, {
@@ -30,6 +35,7 @@ async function generateStory(db, log, body) {
     model: body.model || undefined,
     temperature: 0.8,
     min_max_tokens: minTokensNeeded,
+    silence_timeout_ms: silenceTimeoutMs,
   });
 
   log && log.info && log.info('Story raw response', {
