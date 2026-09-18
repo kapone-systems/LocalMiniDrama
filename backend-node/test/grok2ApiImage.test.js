@@ -158,6 +158,13 @@ describe('buildGrok2ApiImageUrl', () => {
     const config = { base_url: 'http://127.0.0.1:8000/v1/' };
     assert.equal(buildGrok2ApiImageUrl(config, false), 'http://127.0.0.1:8000/v1/images/generations');
   });
+
+  it('avoids a /v1/v1 double prefix when base and endpoint both carry /v1', () => {
+    // 回归：LMD 旧库惯例是 base_url 带 /v1，与预设的 endpoint 混用时会产生 /v1/v1/... → 404
+    const config = { base_url: 'http://127.0.0.1:8000/v1', endpoint: '/v1/images/generations' };
+    assert.equal(buildGrok2ApiImageUrl(config, false), 'http://127.0.0.1:8000/v1/images/generations');
+    assert.equal(buildGrok2ApiImageUrl(config, true), 'http://127.0.0.1:8000/v1/images/edits');
+  });
 });
 
 describe('callGrok2ApiImage', () => {
@@ -248,6 +255,35 @@ describe('callGrok2ApiImage', () => {
     server.requests.length = 0;
     await callGrok2ApiImage(baseConfig(), silentLog, { prompt: 'x', size: '2560x1440', image_gen_id: 6 });
     assert.equal(server.requests[0].body.model, 'grok-imagine-image');
+  });
+
+  it('warns when the configured endpoint is not an images endpoint', async () => {
+    const warnings = [];
+    const log = { info() {}, error() {}, warn: (m, e) => warnings.push({ m, e }) };
+    server.requests.length = 0;
+    await callGrok2ApiImage(
+      { ...baseConfig(), endpoint: '/v1/videos/generations' },
+      log,
+      { prompt: 'x', model: 'grok-imagine-image', size: '2560x1440', image_gen_id: 30 }
+    );
+    assert.ok(
+      warnings.some((w) => /endpoint 与上游契约不符/.test(w.m)),
+      '应当对错误的 endpoint 发出告警'
+    );
+  });
+
+  it('does not warn for the contract-correct images endpoint, with or without refs', async () => {
+    const warnings = [];
+    const log = { info() {}, error() {}, warn: (m, e) => warnings.push({ m, e }) };
+    const config = { ...baseConfig(), endpoint: '/v1/images/generations' };
+    server.requests.length = 0;
+    await callGrok2ApiImage(config, log, { prompt: 'x', model: 'grok-imagine-image', size: '2560x1440', image_gen_id: 31 });
+    // 有参考图时 edits 由 generations 推导，不应因 endpoint 是 generations 而告警
+    await callGrok2ApiImage(config, log, {
+      prompt: 'x', model: 'grok-imagine-image', size: '2560x1440', image_gen_id: 32,
+      reference_image_urls: ['https://cdn.example/r1.png'],
+    });
+    assert.equal(warnings.filter((w) => /endpoint 与上游契约不符/.test(w.m)).length, 0);
   });
 
   it('surfaces upstream errors with the upstream message', async () => {

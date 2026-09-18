@@ -109,6 +109,14 @@ function createConfig(db, log, req) {
         endpoint = '/videos';
         queryEndpoint = '/videos/{taskId}';
       }
+    } else if (p === 'grok2api') {
+      // grok2api 的接口都挂在 /v1 下，而 base_url 惯例不带 /v1（见 docs/configuration.md）
+      if (st === 'text') endpoint = '/v1/chat/completions';
+      else if (st === 'image' || st === 'storyboard_image') endpoint = '/v1/images/generations';
+      else if (st === 'video') {
+        endpoint = '/v1/videos/generations';
+        queryEndpoint = '/v1/videos/{taskId}';
+      } else if (st === 'tts') endpoint = '/v1/audio/speech';
     }
   }
   const defaultModel = req.default_model != null ? String(req.default_model).trim() || null : null;

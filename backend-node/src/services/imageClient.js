@@ -9,6 +9,7 @@ const taskService = require('./taskService');
 const { loadConfig } = require('../config');
 const { postJSONWithTimeout } = require('./aiClient');
 const seedance2AssetGuards = require('../utils/seedance2AssetGuards');
+const { joinApiUrl } = require('../utils/apiUrl');
 
 /** 图生 POST 使用 Node http(s)，默认 10 分钟，避免 undici fetch 大包体/慢链路下模糊失败 */
 const IMAGE_HTTP_TIMEOUT_MS = 600000;
@@ -188,23 +189,23 @@ function isGrok2ApiImageProtocol(apiProtocol, provider, model, baseUrl) {
  * base_url 可能已含 /v1（LMD 惯例），也可能不含；`endpoint` 通常写全路径（如 /v1/images/generations）。
  * edits 路径优先取显式 edit_endpoint；否则从配置的 generations endpoint 推导同前缀的 /images/edits
  * ——否则在 base_url 不含 /v1 而 endpoint 含 /v1 时会丢掉前缀，打到错误的 /images/edits。
+ * 统一走 joinApiUrl 消除 base 与 endpoint 重复的 /v1（否则会打到 /v1/v1/... 而 404）。
  */
 function buildGrok2ApiImageUrl(config, useEdit) {
-  const base = (config.base_url || '').replace(/\/$/, '');
   const normalize = (v, fallback) => {
     const s = String(v || '').trim() || fallback;
     return s.startsWith('/') ? s : '/' + s;
   };
   if (!useEdit) {
-    return base + normalize(config.endpoint, '/images/generations');
+    return joinApiUrl(config.base_url, config.endpoint, '/images/generations');
   }
   const explicitEdit = config.edit_endpoint || config.editEndpoint;
-  if (explicitEdit) return base + normalize(explicitEdit, '/images/edits');
+  if (explicitEdit) return joinApiUrl(config.base_url, explicitEdit, '/images/edits');
 
   // 从 generations endpoint 推导前缀，保证 /v1 之类的版本段不丢
   const gen = normalize(config.endpoint, '/images/generations');
   const derived = gen.replace(/\/images\/generations\/?$/i, '/images/edits');
-  return base + (derived === gen ? '/images/edits' : derived);
+  return joinApiUrl(config.base_url, derived === gen ? '/images/edits' : derived);
 }
 
 /**
@@ -1554,6 +1555,17 @@ async function callGrok2ApiImage(config, log, opts) {
   }
 
   const url = buildGrok2ApiImageUrl(config, useEdit);
+  // 存量配置里 endpoint 可能指向旧路径；上游图片只有 /images/generations 与 /images/edits，
+  // 提前告警，免得只在上游 404 时才暴露。（edits 路径由 generations 推导，故两者都算合法）
+  const epForCheck = String(config.endpoint || '').trim();
+  if (epForCheck && !/\/images\/(generations|edits)$/i.test(epForCheck)) {
+    log.warn('[grok2api图生] endpoint 与上游契约不符，请检查 AI 配置', {
+      image_gen_id,
+      configured_endpoint: config.endpoint,
+      expected: '/v1/images/generations（有参考图时会自动改用 /v1/images/edits）',
+      resolved_url: url,
+    });
+  }
   const body = {
     model: modelName,
     prompt: prompt || '',

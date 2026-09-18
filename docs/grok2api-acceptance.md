@@ -131,11 +131,40 @@ PASS  轮询解析出 video.url  — {"video_url":"https://cdn.example/out.mp4"}
 | 项 | 验收标准 | 结果 |
 |---|---|---|
 | T3.1 | 文本走 `/chat/completions` | ✅ 上游支持，含 SSE 流式（LMD 强制 `stream:true`） |
-| T3.2 | TTS 走 `/audio/speech` | ✅ 字段全兼容；`alloy`→`ara` 等自动映射 |
+| T3.2 | TTS 走 `/v1/audio/speech` | ⚠️ 首轮验收漏判，已修复（见「T3.2 补记」） |
 | T3.3 | 修「测试连接」误导（D8） | ✅ 改为 `GET /v1/models`，同时验证 key 与模型存在性 |
 
-**T3.1 / T3.2 结论**：这两个路径**无需改代码**，上游契约与 LMD 现有实现兼容。
-只需在配置里用正确的模型名（`grok-4.5` / `grok-voice-latest` 等），已写入预设与文档。
+**T3.1 结论**：文本路径**无需改代码**，上游契约与 LMD 现有实现兼容。
+只需在配置里用正确的模型名（`grok-4.5` 等），已写入预设与文档。
+
+**T3.2 补记：首轮验收结论有误，TTS 实际不可用（已修复）**
+
+首轮验收用**裸 curl**（URL 里手写了 `/v1`）验证 TTS 返回 200，据此判定「无需改代码」。
+但这个测法绕过了 LMD 自己的 `ttsService`，而问题恰好在那一层：
+
+```js
+// ttsService.js 原实现：完全忽略配置里的 endpoint
+const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '') + '/audio/speech';
+```
+
+预设、`grok2api.json`、`configuration.md` 三处的 TTS 配置都是 `base_url=http://127.0.0.1:8000`
+（不带 `/v1`）+ `endpoint=/v1/audio/speech`。于是实际请求打到 `http://127.0.0.1:8000/audio/speech`，
+而 grok2api 只在 `/v1` 组下注册该路由（`backend/internal/transport/http/inference/handler.go:105`）→ **404**。
+
+用 mock 服务器跑 LMD 的 `ttsService.synthesize` 代码路径复现（修复前）：
+
+```
+预设 base_url = http://127.0.0.1:57268  endpoint = /v1/audio/speech
+结果: 失败 -> OpenAI TTS HTTP 404: {"error":{"message":"404 page not found"}}
+mock 收到的请求: [ 'POST /audio/speech' ]
+```
+
+注意测试连接**查不出这个问题**：它走 `GET /v1/models`，只验证 key 与模型存在性，不碰 TTS 路由。
+这与原计划要根除的「测试成功但生成 400」是同一类陷阱。
+
+**修复**：`synthesizeWithOpenai` 改为读取 `config.endpoint`（未配置时保持 `base + '/audio/speech'`
+的历史行为，以免影响既有第三方中转配置），并统一走新增的 `src/utils/apiUrl.js#joinApiUrl`
+消除 base 与 endpoint 重复的 `/v1`。回归测试见 `test/ttsEndpoint.test.js`。
 
 **T3.3 验收：测试连接不再误导**（通过真实 HTTP 路由 `/api/v1/ai-configs/test` 验证）
 ```

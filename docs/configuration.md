@@ -204,6 +204,12 @@ grok2api 是一个把 Grok Web / Console 账号池转成 OpenAI 兼容接口的�
 | 视频 | `http://127.0.0.1:8000` | `grok-imagine-video` | `/v1/videos/generations` | `/v1/videos/{taskId}` |
 | 语音合成 | `http://127.0.0.1:8000` | `grok-voice-latest` | `/v1/audio/speech` | — |
 
+> **`base_url` 与 `endpoint` 的 `/v1` 只写一份即可。** 上表是推荐写法（base 不带 `/v1`、
+> endpoint 带）。若你的 `base_url` 已写成 `http://127.0.0.1:8000/v1`，LMD 会自动去重，
+> 不会产生 `/v1/v1/...` 的 404。但**端点路径本身必须与上表一致**——例如视频的 endpoint
+> 写成 `/videos`（旧 xai 写法）会打到上游不存在的路径，此时日志会输出
+> `endpoint 与上游契约不符` 告警。
+
 > **`api_protocol` 建议显式填 `grok2api`**（图片与视频）。不填也能用——
 > 模型名以 `grok-imagine-` 开头时会自动识别；但显式填写更稳妥。
 

@@ -7,6 +7,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
+const { joinApiUrl } = require('../utils/apiUrl');
 
 /**
  * 使用 MiniMax T2A v2 合成语音
@@ -67,10 +68,16 @@ async function synthesizeWithMinimax(text, voiceId, apiKey, groupId, model) {
 
 /**
  * 使用 OpenAI TTS API 合成语音（兼容所有 OpenAI 格式的代理）
- * POST {base_url}/audio/speech  body: { model, input, voice, response_format, speed }
+ * POST {base_url}{endpoint}  body: { model, input, voice, response_format, speed }
+ *
+ * endpoint 必须来自配置：grok2api 等网关把 /audio/speech 挂在 /v1 下，而 LMD 的
+ * base_url 惯例不带 /v1（预设、docs、中转站 JSON 都是这样），硬拼 base + '/audio/speech'
+ * 会打到 404。未配置 endpoint 时保持历史行为（base + '/audio/speech'），
+ * 以免改变既有中转站的可用配置。
  */
-async function synthesizeWithOpenai(text, voice, apiKey, baseUrl, model, speed) {
-  const url = (baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '') + '/audio/speech';
+async function synthesizeWithOpenai(text, voice, apiKey, baseUrl, model, speed, endpoint) {
+  const base = (baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
+  const url = joinApiUrl(base, endpoint, '/audio/speech');
   const body = JSON.stringify({
     model: model || 'tts-1',
     input: text,
@@ -145,14 +152,14 @@ async function synthesize(db, log, { text, storyboard_id, config, storage_base, 
       ttsModel || 'speech-02-hd'
     );
   } else if (provider === 'openai' || ttsConfig.base_url) {
-    console.log('==c sxy synthesizeWithOpenai', text, voiceId, ttsConfig.api_key, ttsConfig.base_url, ttsModel, finalSpeed);
     audioBuffer = await synthesizeWithOpenai(
       text,
       voiceId || 'alloy',
       ttsConfig.api_key,
       ttsConfig.base_url,
       ttsModel || 'tts-1',
-      finalSpeed
+      finalSpeed,
+      ttsConfig.endpoint
     );
   } else {
     throw new Error(`不支持的 TTS provider: ${provider}，目前支持 openai、minimax`);

@@ -309,6 +309,10 @@ ConsoleVideoMaxReferenceDurationSeconds = 10
 ### 6.2 TTS
 
 - `/v1/audio/speech` 是 OpenAI 兼容别名（`handler.go:104`），LMD 的 TTS 走的正是这个。
+- **路径前缀是硬约束**：该路由只在 `/v1` 组下注册（`server.go:176` 的 `router.Group("/v1")`
+  → `handler.go:105`），没有根路径别名。LMD 侧的 `base_url` 惯例不带 `/v1`，所以
+  `endpoint` **必须**配成 `/v1/audio/speech`——`ttsService` 早期实现忽略 `endpoint` 硬拼
+  `base + '/audio/speech'`，会打到 404（详见验收文档「T3.2 补记」）。
 - OpenAI 风格 voice 会自动映射，例如 `alloy` → `ara`（`openai_audio_handler.go:165`，测试见 `openai_audio_handler_test.go:126`）。
 - 模型名用 `grok-voice-latest` 等（3.4）。
 - **TTS 需要 Console 账号**。

@@ -17,6 +17,7 @@ const {
   unsafeDecodeKlingJwtPayload,
   jwtPartLengths,
 } = require('./klingJwt');
+const { joinApiUrl } = require('../utils/apiUrl');
 
 /**
  * ?? provider ??????????api_protocol ??????????
@@ -1090,6 +1091,8 @@ function buildQueryUrl(config, taskId, extras = {}) {
   let ep = config.query_endpoint || defaultEp;
   ep = String(ep).replace(/\{taskId\}/gi, encodeURIComponent(taskId)).replace(/\{task_id\}/gi, encodeURIComponent(taskId)).replace(/\{id\}/gi, encodeURIComponent(taskId));
   if (!ep.startsWith('/')) ep = '/' + ep;
+  // grok2api 走 joinApiUrl 消除 base 与 query_endpoint 重复的 /v1（否则 /v1/v1/... → 404）
+  if (proto === 'grok2api') return joinApiUrl(base, ep);
   return base + ep;
 }
 
@@ -3331,10 +3334,14 @@ async function callGrok2ApiVideo(config, log, opts) {
     video_gen_id,
   } = opts;
 
-  const base = (config.base_url || '').replace(/\/$/, '');
-  let ep = config.endpoint || '/v1/videos/generations';
-  if (!ep.startsWith('/')) ep = '/' + ep;
-  const url = base + ep;
+  const url = joinApiUrl(config.base_url, config.endpoint, '/v1/videos/generations');
+  // 存量配置里常见 endpoint=/videos（旧 xai 写法），拼出来是 /videos 而不是上游唯一的
+  // /v1/videos/generations；这里提前告警，免得只在上游 404 时才暴露。
+  if (config.endpoint && !/\/videos\/generations$/i.test(String(config.endpoint).trim())) {
+    log.warn('[grok2api视频] endpoint 与上游契约不符（应为 /v1/videos/generations），请检查 AI 配置', {
+      video_gen_id, configured_endpoint: config.endpoint, resolved_url: url,
+    });
+  }
 
   const modelName = String(model || '').trim() || 'grok-imagine-video';
   const ratio = normalizeGrok2ApiVideoAspectRatio(aspect_ratio);

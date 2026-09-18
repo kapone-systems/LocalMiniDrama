@@ -106,6 +106,23 @@ describe('buildQueryUrl for grok2api', () => {
     };
     assert.equal(buildQueryUrl(config, 'req_xyz'), 'http://127.0.0.1:8000/v1/videos/req_xyz');
   });
+
+  it('avoids a /v1/v1 double prefix when base carries /v1 (legacy config shape)', () => {
+    // 回归：LMD 旧库的 base_url 带 /v1，与预设的 query_endpoint 混用会产生 /v1/v1/... → 404
+    const config = {
+      provider: 'grok2api', base_url: 'http://127.0.0.1:8000/v1',
+      model: ['grok-imagine-video'], query_endpoint: '/v1/videos/{taskId}',
+    };
+    assert.equal(buildQueryUrl(config, 'req_xyz'), 'http://127.0.0.1:8000/v1/videos/req_xyz');
+  });
+
+  it('adds the version segment when base has /v1 and no query_endpoint is configured', () => {
+    const config = {
+      provider: 'grok2api', base_url: 'http://127.0.0.1:8000/v1',
+      model: ['grok-imagine-video'],
+    };
+    assert.equal(buildQueryUrl(config, 'req_xyz'), 'http://127.0.0.1:8000/v1/videos/req_xyz');
+  });
 });
 
 describe('callGrok2ApiVideo', () => {
@@ -237,6 +254,32 @@ describe('callGrok2ApiVideo', () => {
       prompt: 'x', model: 'grok-imagine-video', duration: 6, aspect_ratio: '16:9', video_gen_id: 10,
     });
     assert.equal(server.requests[0].url, '/v1/videos/generations');
+  });
+
+  it('warns when the configured endpoint does not match the upstream contract', async () => {
+    // 存量配置里的旧写法 endpoint=/videos（旧库就是这样），拼出来不是上游唯一路径
+    const warnings = [];
+    const log = { info() {}, error() {}, warn: (m, e) => warnings.push({ m, e }) };
+    server.requests.length = 0;
+    const legacy = { ...cfg(server.base), endpoint: '/videos' };
+    await callGrok2ApiVideo(legacy, log, {
+      prompt: 'x', model: 'grok-imagine-video', duration: 6, aspect_ratio: '16:9', video_gen_id: 20,
+    });
+    assert.equal(server.requests[0].url, '/videos');
+    assert.ok(
+      warnings.some((w) => /endpoint 与上游契约不符/.test(w.m)),
+      '应当对错误的 endpoint 发出告警'
+    );
+  });
+
+  it('does not warn for the contract-correct endpoint', async () => {
+    const warnings = [];
+    const log = { info() {}, error() {}, warn: (m, e) => warnings.push({ m, e }) };
+    server.requests.length = 0;
+    await callGrok2ApiVideo({ ...cfg(server.base), endpoint: '/v1/videos/generations' }, log, {
+      prompt: 'x', model: 'grok-imagine-video', duration: 6, aspect_ratio: '16:9', video_gen_id: 21,
+    });
+    assert.equal(warnings.filter((w) => /endpoint 与上游契约不符/.test(w.m)).length, 0);
   });
 
   it('defaults the model to grok-imagine-video', async () => {
