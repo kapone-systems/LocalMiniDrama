@@ -9,7 +9,7 @@
 
 > 遇到问题或有功能建议，欢迎在 [本仓库 Issues](https://github.com/kapone-systems/LocalMiniDrama/issues) 提交反馈。
 
-> **本包版本：** `1.2.10`（与仓库根目录 [CHANGELOG](../CHANGELOG.md)、前端与桌面 `package.json` 对齐）
+> **本包版本：** `1.3.0`（与仓库根目录 [CHANGELOG](../CHANGELOG.md)、前端与桌面 `package.json` 对齐）
 
 ---
 
