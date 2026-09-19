@@ -10,6 +10,7 @@ const { loadConfig } = require('../config');
 const { postJSONWithTimeout } = require('./aiClient');
 const seedance2AssetGuards = require('../utils/seedance2AssetGuards');
 const { joinApiUrl } = require('../utils/apiUrl');
+const { getProtocol, inferFromRegistry } = require('../protocols');
 
 /** 图生 POST 使用 Node http(s)，默认 10 分钟，避免 undici fetch 大包体/慢链路下模糊失败 */
 const IMAGE_HTTP_TIMEOUT_MS = 600000;
@@ -89,7 +90,9 @@ function getProxyExpireHours() {
  * 根据 provider 名推断接口规范（api_protocol 未设置时的兜底逻辑）
  * 已明确设置 api_protocol 的配置不会走此函数。
  */
-function inferProtocol(provider, model) {
+function inferProtocol(provider, model, baseUrl) {
+  const fromReg = inferFromRegistry({ provider, model, baseUrl, service: 'image' });
+  if (fromReg) return fromReg;
   const p = String(provider || '').toLowerCase();
   if (p === 'dashscope' || p === 'qwen_image') return 'dashscope';
   if (p === 'nano_banana') return 'nano_banana';
@@ -1685,7 +1688,7 @@ async function callImageApi(db, log, opts) {
   const model = getModelFromConfig(config, preferredModel);
   const provider = (config.provider || '').toLowerCase();
   // api_protocol 显式指定接口规范，优先级高于 provider 推断；未设置时按 provider 自动判断
-  let protocol = (config.api_protocol || '').toLowerCase() || inferProtocol(provider, model);
+  let protocol = (config.api_protocol || '').toLowerCase() || inferProtocol(provider, model, config.base_url);
   // grok-imagine-* 模型走 grok2api 协议（api_protocol 为空或泛化 openai 时纠偏），
   // 否则会按 openai 协议发像素 size 与 quality:'standard'，被上游 400 拒绝
   if (protocol !== 'grok2api'
@@ -1732,6 +1735,19 @@ async function callImageApi(db, log, opts) {
   const autoNegativePrompt = (refCountForNeg > 1 || isVolcOrSeedream) ? ANTI_SPLIT_NEGATIVE_PROMPT : '';
   const userNegFragment = (user_negative_prompt && String(user_negative_prompt).trim()) || '';
   const mergedNegativePrompt = mergeNegativePromptFragments(autoNegativePrompt, userNegFragment);
+
+  const registered = getProtocol(protocol);
+  if (registered && typeof registered.submitImage === 'function') {
+    return registered.submitImage(config, log, {
+      ...opts,
+      prompt: effectivePrompt,
+      model,
+      size,
+      quality,
+      negative_prompt: mergedNegativePrompt,
+      protocol,
+    });
+  }
 
   if (protocol === 'dashscope') {
     return callDashScopeImageApi(config, log, {
@@ -2147,7 +2163,7 @@ function getStoryboardReferenceLimits(config, modelName) {
   const provider = (config?.provider || '').toLowerCase();
   const modelForProtocol = modelName || config?.model;
   const explicit = (config?.api_protocol || '').toLowerCase();
-  const protocol = explicit || inferProtocol(provider, modelForProtocol);
+  const protocol = explicit || inferProtocol(provider, modelForProtocol, config?.base_url);
   if (protocol === 'kling') {
     return { total: 1, maxCharacters: 1, maxObjects: 1 };
   }

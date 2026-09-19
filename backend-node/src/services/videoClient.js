@@ -18,11 +18,19 @@ const {
   jwtPartLengths,
 } = require('./klingJwt');
 const { joinApiUrl } = require('../utils/apiUrl');
+const { getProtocol, inferFromRegistry } = require('../protocols');
 
 /**
  * ?? provider ??????????api_protocol ??????????
  */
-function inferVideoProtocol(provider) {
+function inferVideoProtocol(provider, extra = {}) {
+  const fromReg = inferFromRegistry({
+    provider,
+    model: extra.model || '',
+    baseUrl: extra.baseUrl || '',
+    service: 'video',
+  });
+  if (fromReg) return fromReg;
   const p = String(provider || '').toLowerCase();
   if (p === 'dashscope') return 'dashscope';
   if (p === 'gemini' || p === 'google') return 'gemini';
@@ -52,13 +60,16 @@ function isMinimaxH3Model(name) {
 function resolveVideoProtocol(config, modelHint) {
   const provider = (config.provider || '').toLowerCase();
   const explicit = String(config.api_protocol || '').trim();
-  let protocol = explicit.toLowerCase() || inferVideoProtocol(provider);
   const baseLower = String(config.base_url || '').toLowerCase();
   const modelCand =
     modelHint ||
     config.default_model ||
     (Array.isArray(config.model) ? config.model[0] : config.model) ||
     '';
+  let protocol = explicit.toLowerCase() || inferVideoProtocol(provider, {
+    model: modelCand,
+    baseUrl: config.base_url,
+  });
   const modelLower = String(modelCand || '').toLowerCase();
   if (!explicit && protocol === 'openai') {
     if (/api\.x\.ai(\/|$)/.test(baseLower)) protocol = 'xai';
@@ -4110,6 +4121,19 @@ async function callVideoApi(db, log, opts) {
     endpoint: config.endpoint || '(auto)',
   });
 
+  const registered = getProtocol(protocol);
+  if (registered && typeof registered.submitVideo === 'function') {
+    return registered.submitVideo(config, log, {
+      ...opts,
+      prompt,
+      model,
+      duration: opts.duration,
+      aspect_ratio,
+      resolution: opts.resolution,
+      protocol,
+    });
+  }
+
   if (protocol === 'jimeng_ai_api') {
     return callJimengAiApiVideo(config, log, {
       prompt,
@@ -4467,6 +4491,22 @@ async function pollVideoTask(db, log, videoGenId, taskId, config, maxAttempts = 
   const isKling = protocol === 'kling';
   const isKlingOmni = protocol === 'kling_omni' || (typeof taskId === 'string' && taskId.startsWith('omni:'));
   const isVeo3 = protocol === 'veo3';
+  const registeredPoll = getProtocol(protocol);
+  if (registeredPoll && typeof registeredPoll.pollVideo === 'function') {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0 && intervalMs > 0) {
+        await new Promise((r) => setTimeout(r, intervalMs));
+      }
+      try {
+        const result = await registeredPoll.pollVideo(config, log, taskId);
+        if (result && result.error) return result;
+        if (result && result.video_url) return result;
+      } catch (e) {
+        log.warn('Video poll (registry) failed', { attempt, error: e.message, protocol });
+      }
+    }
+    return { error: '等待视频生成超时' };
+  }
   /** 轮询日志里响应体最大字符数（即梦/方舟等 JSON 可能较长）；0 表示不截断（慎用） */
   const pollLogBodyMax = (() => {
     const v = String(process.env.VIDEO_POLL_LOG_MAX || '16384').trim();

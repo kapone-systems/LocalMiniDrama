@@ -10,6 +10,7 @@ function normalizeApiKeyForService(serviceType, apiKey) {
   return apiKey;
 }
 const { applyDeepSeekConnectivityOptions } = require('./deepseekConfig');
+const { getProtocol, inferFromRegistry, defaultEndpointsFor } = require('../protocols');
 function modelToDb(model) {
   if (model == null) return null;
   if (Array.isArray(model)) return JSON.stringify(model);
@@ -117,6 +118,14 @@ function createConfig(db, log, req) {
         endpoint = '/v1/videos/generations';
         queryEndpoint = '/v1/videos/{taskId}';
       } else if (st === 'tts') endpoint = '/v1/audio/speech';
+    }
+  }
+  if (!endpoint || !queryEndpoint) {
+    const protoKey = String(req.api_protocol || req.provider || '').toLowerCase();
+    const eps = defaultEndpointsFor(protoKey, req.service_type || 'text');
+    if (eps) {
+      if (!endpoint && eps.endpoint) endpoint = eps.endpoint;
+      if (!queryEndpoint && eps.query) queryEndpoint = eps.query;
     }
   }
   const defaultModel = req.default_model != null ? String(req.default_model).trim() || null : null;
@@ -258,10 +267,12 @@ function rowToConfig(r) {
  */
 function isGrok2ApiConnection(opts) {
   const baseUrl = String(opts.base_url || '');
+  const explicit = String(opts.api_protocol || '').trim().toLowerCase();
   // 官方 xAI 直连不走 grok2api 的模型清单（其模型 ID 与 grok2api 的 public ID 不同）
   if (/api\.x\.ai(\/|$)/i.test(baseUrl)) return false;
+  if (explicit && explicit !== 'grok2api' && explicit !== 'openai') return false;
   if (String(opts.provider || '').trim().toLowerCase() === 'grok2api') return true;
-  if (String(opts.api_protocol || '').trim().toLowerCase() === 'grok2api') return true;
+  if (explicit === 'grok2api') return true;
   const models = Array.isArray(opts.model) ? opts.model : (opts.model != null ? [opts.model] : []);
   if (models.some((m) => /^(grok-imagine-|grok-voice-|grok-stt$|grok-\d)/i.test(String(m || '').trim()))) return true;
   return false;
@@ -288,6 +299,14 @@ async function testConnection(opts) {
   // GET /v1/models，能同时验证 key 有效性和「模型是否真的存在」——后者正是过去
   // 「测试连接成功但实际生成 400」的根因（配置里写了不存在的 grok-imagine-medium）。
   // 契约见 docs/grok2api-contract.md §2、§3。
+  const protoHint = String(opts.api_protocol || '').toLowerCase()
+    || inferFromRegistry({ provider, model, baseUrl: base, service: serviceType });
+  const registered = getProtocol(protoHint);
+  if (registered && typeof registered.testConnection === 'function' && protoHint && protoHint !== 'openai') {
+    await registered.testConnection(opts);
+    return;
+  }
+
   if (isGrok2ApiConnection(opts)) {
     // base_url 可能已含 /v1（LMD 惯例），也可能不含（附录 C 的推荐写法），两种都兼容
     const modelsUrl = /\/v1$/i.test(base) ? base + '/models' : base + '/v1/models';

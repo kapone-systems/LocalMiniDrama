@@ -10,6 +10,20 @@
 
 ---
 
+## [1.3.0] - 2026-09-19
+
+### 新增
+
+- **协议注册表**：图/视频新增可插拔协议族，覆盖 APIMart 任务中心、硅基流动、OpenRouter、Fal/Wavespeed、Replicate、PiAPI、Kie、Novita、海螺 02/2.3、OpenAI 官方 Sora JSON、即梦官方、PixVerse、SkyReels、Runway、Luma、Pika、Ideogram、Midjourney Imagine、智谱清影、腾讯混元、百度千帆、讯飞星火、RunningHub。显式 `api_protocol` 不会再被 grok-imagine 误判成 grok2api。
+- **AI 配置页改版**：类型 chips 过滤、预设画廊（官方 / 中转 / 自建）、导入向导（跳过 stt、统一换 Key、冲突策略）、协议按服务类型分组。
+- **中转站预设**：新增 `各大平台中转站配置/apimart.json`；画廊内置 302 / 飞儿 / 云雾 / n1n / GeekNow / 向量。
+
+### 优化
+
+- 配置表单加宽，协议说明改为当前项内联帮助，避免再堆一排超长下拉。
+
+---
+
 ## [1.2.10] - 2026-09-19
 
 ### 新增

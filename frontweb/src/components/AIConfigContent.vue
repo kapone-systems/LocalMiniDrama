@@ -12,29 +12,15 @@
               </el-button>
               <el-button plain @click="exportConfigs">
                 <el-icon><Download /></el-icon>
-                导出配置
+                导出
               </el-button>
-              <el-button plain @click="triggerImport">
+              <el-button plain @click="importWizardVisible = true">
                 <el-icon><Upload /></el-icon>
-                导入配置
+                导入
               </el-button>
-              <input ref="importFileRef" type="file" accept=".json" style="display:none" @change="importConfigs" />
-              <el-button type="success" plain @click="openOneKeyVolc">
+              <el-button type="success" plain @click="galleryVisible = true">
                 <el-icon><MagicStick /></el-icon>
-                一键配置火山
-              </el-button>
-              <el-button type="success" plain @click="openOneKeyAgnes">
-                <el-icon><MagicStick /></el-icon>
-                一键配置 Agnes
-              </el-button>
-              <el-button type="success" plain @click="openOneKeyGrok2Api">
-                <el-icon><MagicStick /></el-icon>
-                一键配置 grok2api
-              </el-button>
-              <el-button type="info" plain @click="openOneKeyTongyi">
-                <el-icon><MagicStick /></el-icon>
-                一键配置通义
-                <span class="one-key-not-recommended">不推荐</span>
+                预设画廊
               </el-button>
             </div>
             <div class="actions-right">
@@ -67,10 +53,21 @@
               一键换Key
             </el-button>
           </div>
-          <p class="default-tip">每种服务类型仅有一个默认配置：文本用于生成故事；文本生成图片用于角色/场景/道具图；分镜图片生成用于分镜图（支持参考图）；视频用于生成视频；语音合成 TTS 用于分镜配音；即梦2角色认证用于创作页 SD2 认证（网关 Token）；SD2 资产库用于官方 ModelArk 私有资产（在未配置即梦2角色认证时供 SD2 认证使用）。</p>
+          <p class="default-tip">每种服务类型只有一个默认配置。用「预设画廊」一次接入官方或中转站全套；协议按类型过滤，避免图配置误选视频接口。</p>
+          <div class="type-chips">
+            <button type="button" class="type-chip" :class="{ on: !typeFilter }" @click="typeFilter = ''">全部 {{ list.length }}</button>
+            <button
+              v-for="t in serviceTypeFilters"
+              :key="t.id"
+              type="button"
+              class="type-chip"
+              :class="['type-' + t.id, { on: typeFilter === t.id }]"
+              @click="typeFilter = typeFilter === t.id ? '' : t.id"
+            >{{ t.label }} {{ countByType(t.id) }}</button>
+          </div>
           <el-table
             v-loading="loading"
-            :data="list"
+            :data="filteredList"
             stripe
             style="width: 100%"
             @selection-change="onSelectionChange"
@@ -209,7 +206,8 @@
     <el-dialog
       v-model="dialogVisible"
       :title="vendorLock.enabled ? '修改 API Key / 默认模型' : (editingId ? '编辑配置' : '添加配置')"
-      width="520px"
+      width="720px"
+      class="ai-config-form-dialog"
       :close-on-click-modal="false"
       @closed="resetForm"
     >
@@ -326,20 +324,12 @@
               <el-icon class="tip-icon" style="cursor:pointer;color:var(--el-color-primary)" @click="showProtocolHelp = true"><QuestionFilled /></el-icon>
             </span>
           </template>
-          <el-select v-model="form.api_protocol" style="width: 100%" placeholder="选择接口规范（自定义厂商必选）" clearable>
-            <el-option label="OpenAI 兼容（大多数中转站默认）" value="openai" />
-            <el-option label="火山引擎（豆包 Seedream / Seedance）" value="volcengine" />
-            <el-option label="火山即梦 Seedance 全能（方舟多图参考，Seedance 2.0 等）" value="volcengine_omni" />
-            <el-option label="通义万象 DashScope" value="dashscope" />
-            <el-option label="Google Gemini（图片 / Veo 视频）" value="gemini" />
-            <el-option label="Sora 中转站（multipart/form-data，seconds+size）" value="sora" />
-            <el-option label="Veo3 兼容（JSON，images+enhance_prompt，自动翻译英文）" value="veo3" />
-            <el-option label="Vidu 视频" value="vidu" />
-            <el-option label="可灵 Omni-Video（官方 api-beijing / ffir 中转，O1 全能）" value="kling_omni" />
-            <el-option label="xAI Grok Imagine（官方 prompt + aspect_ratio，/v1/videos/generations）" value="xai" />
-            <el-option label="MiniMax H3（官方 V2：/v2/video_generation，模型 MiniMax-H3）" value="minimax_h3" />
-            <el-option label="NanoBanana" value="nano_banana" />
+          <el-select v-model="form.api_protocol" style="width: 100%" placeholder="按服务类型筛选协议" clearable filterable>
+            <el-option-group v-for="g in protocolGroups" :key="g.id" :label="g.label">
+              <el-option v-for="p in g.items" :key="p.id" :label="p.label" :value="p.id" />
+            </el-option-group>
           </el-select>
+          <p v-if="activeProtocolHelp" class="protocol-inline-help">{{ activeProtocolHelp }}</p>
         </el-form-item>
 
         <!-- 接口规范帮助 Dialog -->
@@ -1155,6 +1145,9 @@ input_reference = (图片文件，可选)</pre>
         <el-button type="primary" :loading="bulkKeySaving" :disabled="!bulkKeyInput.trim()" @click="submitBulkKey">确认替换</el-button>
       </template>
     </el-dialog>
+
+    <ProviderGallery v-model="galleryVisible" @applied="loadList" />
+    <ImportWizard v-model="importWizardVisible" :existing="list" @applied="loadList" />
   </div>
 </template>
 
@@ -1167,9 +1160,32 @@ import { generationSettingsAPI } from '@/api/prompts'
 import PromptEditor from '@/components/PromptEditor.vue'
 import SceneModelMap from '@/components/SceneModelMap.vue'
 import Sd2AssetManagement from '@/components/Sd2AssetManagement.vue'
+import ProviderGallery from '@/components/ai-config/ProviderGallery.vue'
+import ImportWizard from '@/components/ai-config/ImportWizard.vue'
+import {
+  SERVICE_TYPES,
+  protocolsForService,
+  findProtocol,
+  PROVIDER_PRESETS,
+  PROVIDER_PROTOCOL,
+  PROVIDER_BASE,
+} from '@/ai-config/catalog.js'
+
+const galleryVisible = ref(false)
+const importWizardVisible = ref(false)
+const typeFilter = ref('')
+const serviceTypeFilters = SERVICE_TYPES
+
+function countByType(id) {
+  return list.value.filter((r) => r.service_type === id).length
+}
+const filteredList = computed(() => (
+  typeFilter.value ? list.value.filter((r) => r.service_type === typeFilter.value) : list.value
+))
+const protocolGroups = computed(() => protocolsForService(form.value.service_type))
+const activeProtocolHelp = computed(() => findProtocol(form.value.api_protocol)?.help || '')
 
 const activeTab = ref('configs')
-const importFileRef = ref(null)
 
 // ---- 生成设置 ----
 const genConcurrencyInput = ref(3)
@@ -1362,9 +1378,14 @@ const oneKeyGrok2ApiKey = ref('')
 const oneKeyGrok2ApiBaseUrl = ref('http://127.0.0.1:8000')
 const oneKeyGrok2ApiSaving = ref(false)
 
-/** 预设厂商与模型（与参考前端一致） */
+function mergeProviderLists(legacyList, catalogList) {
+  const ids = new Set((legacyList || []).map((p) => p.id))
+  return [...(legacyList || []), ...(catalogList || []).filter((p) => !ids.has(p.id))]
+}
+
+/** 旧预设模型列表 + catalog 里新增的聚合/官方厂商 */
 const providerConfigs = {
-  text: [
+  text: mergeProviderLists([
     { id: 'openai', name: 'OpenAI', models: ['gpt-4o', 'gpt-4', 'gpt-3.5-turbo'] },
     { id: 'volcengine', name: '火山引擎', models: ['deepseek-v3-2-251201', 'doubao-1-5-pro-32k-250115', 'kimi-k2-thinking-251104'] },
     // { id: 'chatfire', name: 'Chatfire', models: ['gemini-3-flash-preview', 'claude-sonnet-4-5-20250929', 'doubao-seed-1-8-251228'] },
@@ -1372,8 +1393,8 @@ const providerConfigs = {
     { id: 'deepseek', name: 'DeepSeek', models: ['deepseek-v4-flash', 'deepseek-v4-pro'] },
     { id: 'qwen', name: '通义千问', models: ['qwen3-max', 'qwen-plus', 'qwen-flash'] },
     { id: 'agnes', name: 'Agnes AI', models: ['agnes-3.0-flash', 'agnes-2.5-flash', 'agnes-2.5-pro', 'agnes-2.0-flash'] }
-  ],
-  image: [
+  ], PROVIDER_PRESETS.text),
+  image: mergeProviderLists([
     { id: 'volcengine', name: '火山引擎', models: ['doubao-seedream-4-5-251128', 'doubao-seedream-4-0-250828'] },
     { id: 'kling', name: '可灵 Kling', models: ['kling-image', 'kling-omni-image'] },
     { id: 'nano_banana', name: 'NanoBanana', models: ['nano-banana-2', 'nano-banana-pro', 'nano-banana'] },
@@ -1383,8 +1404,8 @@ const providerConfigs = {
     { id: 'dashscope', name: '通义万象', models: ['wan2.6-image', 'qwen-image-edit-plus-2026-01-09', 'qwen-image-edit-plus', 'qwen-image-edit-max'] },
     { id: 'qwen_image', name: '通义千问', models: ['qwen-image-max', 'qwen-image-plus', 'qwen-image'] },
     { id: 'agnes', name: 'Agnes AI', models: ['agnes-image-2.5-flash', 'agnes-image-2.1-flash', 'agnes-image-2.0-flash'] }
-  ],
-  storyboard_image: [
+  ], PROVIDER_PRESETS.image),
+  storyboard_image: mergeProviderLists([
     { id: 'dashscope', name: '通义万象', models: ['wan2.6-image', 'qwen-image-edit-plus-2026-01-09', 'qwen-image-edit-plus', 'qwen-image-edit-max'] },
     { id: 'volcengine', name: '火山引擎', models: ['doubao-seedream-4-5-251128', 'doubao-seedream-4-0-250828'] },
     { id: 'kling', name: '可灵 Kling', models: ['kling-image', 'kling-omni-image'] },
@@ -1393,8 +1414,8 @@ const providerConfigs = {
     { id: 'gemini', name: 'Google Gemini', models: ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image-preview'] },
     { id: 'openai', name: 'OpenAI', models: ['dall-e-3', 'dall-e-2'] },
     { id: 'agnes', name: 'Agnes AI', models: ['agnes-image-2.5-flash', 'agnes-image-2.1-flash', 'agnes-image-2.0-flash'] }
-  ],
-  video: [
+  ], PROVIDER_PRESETS.storyboard_image),
+  video: mergeProviderLists([
     { id: 'klingai', name: '可灵官方 Omni (api-beijing.klingai.com)', models: ['kling-video-o1', 'kling-v3-omni'] },
     { id: 'ffir', name: '飞儿API / 可灵 Omni-Video (ffir.cn)', models: ['kling-video-o1', 'kling-v3-omni'] },
     { id: 'kling', name: '可灵 Kling', models: ['kling-omni-video', 'kling-video', 'kling-motion-control'] },
@@ -1420,48 +1441,23 @@ const providerConfigs = {
     { id: 'openai', name: 'OpenAI', models: ['sora-2', 'sora-2-pro'] },
     { id: 'xai', name: 'xAI Grok Imagine', models: ['grok-imagine-video'] },
     { id: 'agnes', name: 'Agnes AI', models: ['agnes-video-2.5-flash', 'agnes-video-2.5', 'agnes-video-v2.0'] },
-  ],
-  tts: [
+  ], PROVIDER_PRESETS.video),
+  tts: mergeProviderLists([
     { id: 'minimax', name: 'MiniMax T2A', models: ['speech-02-hd', 'speech-02-turbo'] },
-  ],
-  jimeng2_character_auth: [
+  ], PROVIDER_PRESETS.tts),
+  jimeng2_character_auth: mergeProviderLists([
     { id: 'jimeng_material_api', name: '即梦业务素材 API（/api/business/v1）', models: ['-'] },
-  ],
+  ], PROVIDER_PRESETS.jimeng2_character_auth),
 }
 
 /** 厂商 id → 默认接口规范（api_protocol） */
-const providerProtocolMap = {
-  // image / storyboard_image
-  volcengine: 'volcengine',
-  volces: 'volcengine',
-  volc: 'volcengine',
-  nano_banana: 'nano_banana',
-  dashscope: 'dashscope',
-  qwen_image: 'dashscope',
-  gemini: 'gemini',
-  google: 'gemini',
-  kling: 'kling',
-  ffir: 'kling_omni',
-  klingai: 'kling_omni',
-  // video
-  vidu: 'vidu',
-  xai: 'xai',
-  grok: 'xai',
-  minimax: 'openai',
-  minimax_h3: 'minimax_h3',
-  openai: 'openai',
-  chatfire: 'openai',
-  qwen: 'openai',
-  deepseek: 'openai',
-  agnes: 'openai',
-  jimeng_ai_api: 'jimeng_ai_api',
-  jimeng_material_api: '',
-}
+const providerProtocolMap = { ...PROVIDER_PROTOCOL, jimeng_material_api: '' }
 
 /** 厂商 id → 默认 Base URL（与参考前端 AIConfigDialog 757-775 一致） */
 function getBaseUrlForProvider(provider) {
   if (!provider) return ''
   const p = String(provider).toLowerCase()
+  if (PROVIDER_BASE[p]) return PROVIDER_BASE[p]
   if (p === 'gemini' || p === 'google') return 'https://generativelanguage.googleapis.com'
   if (p === 'minimax_h3') return 'https://api.minimaxi.com'
   if (p === 'minimax') return 'https://api.minimaxi.com/v1'
@@ -2541,13 +2537,39 @@ code {
   font-family: monospace;
 }
 .default-tip {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   padding: 10px 12px;
-  background: #f0f9ff;
-  border-radius: 6px;
+  background: var(--bg-inner);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm, 6px);
   font-size: 13px;
-  color: #0369a1;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.type-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.type-chip {
+  border: 1px solid var(--border-color);
+  background: var(--bg-inner);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.type-chip.on {
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+.protocol-inline-help {
+  margin: 6px 0 0;
+  font-size: 12px;
   line-height: 1.5;
+  color: var(--text-muted);
 }
 .vendor-lock-bar {
   display: flex;

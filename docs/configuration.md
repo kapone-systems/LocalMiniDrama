@@ -187,6 +187,20 @@ API Key：your-api-key
 
 ---
 
+## 协议与预设（v1.3.0）
+
+AI 配置页用「预设画廊」一次创建全套，不必手填协议。
+
+| 分组 | 怎么用 |
+|---|---|
+| 官方直连 | 火山 / Agnes / 通义：填官方 Key |
+| 中转 / 聚合 | APIMart、硅基流动、OpenRouter，以及 302 / 飞儿 / 云雾 等 JSON 包 |
+| 自建网关 | grok2api：填本机 Base URL + Key |
+
+图/视频不要再用「OpenAI 兼容」去套异步中转。APIMart 必须选 **APIMart 任务中心**（`apimart`），轮询 `GET /v1/tasks/{id}`；硅基流动视频是 `POST /v1/video/submit` + `POST /v1/video/status`。海螺 02/2.3 与 MiniMax H3 是两套协议，不要混用。OpenAI 官方 Sora 用 `sora_official`（JSON `/v1/videos`），中转站 multipart 仍用原来的 `sora`。
+
+---
+
 ## grok2api（本地 Grok 网关）
 
 grok2api 是一个把 Grok Web / Console 账号池转成 OpenAI 兼容接口的网关。
