@@ -103,11 +103,16 @@
           <el-input
             v-model="form.universal_segment_text"
             type="textarea"
-            :rows="2"
+            :rows="4"
             resize="vertical" class="nowheel"
             placeholder="全能模式片段描述"
           />
         </el-form-item>
+        <div class="uni-stream-row">
+          <el-button size="small" :loading="uniBusy === 'gen'" :disabled="!!uniBusy" @click.stop="streamUniversal('generate')">生成</el-button>
+          <el-button size="small" :loading="uniBusy === 'polish'" :disabled="!!uniBusy" @click.stop="streamUniversal('polish')">润色</el-button>
+          <el-button v-if="uniBusy" size="small" type="danger" plain @click.stop="cancelUniStream">取消</el-button>
+        </div>
         <el-form-item label="视频词">
           <el-input
             v-model="form.video_prompt"
@@ -160,12 +165,28 @@
       </template>
     </el-form>
 
+    <div v-if="!isUniversal" class="ref-block">
+      <div class="ref-head">
+        <span>参考图</span>
+        <el-button link size="small" type="primary" @click.stop="openListMode">在列表中编辑参考图</el-button>
+      </div>
+      <div v-if="!refCandidates.length" class="ref-empty">无参考</div>
+      <div v-else class="ref-grid">
+        <label v-for="refItem in refCandidates" :key="refItem.key" class="ref-item">
+          <input v-model="selectedRefKeys" type="checkbox" :value="refItem.key" />
+          <img :src="refItem.url" alt="" />
+          <span>{{ refItem.name }}</span>
+        </label>
+      </div>
+    </div>
+
     <div class="panel-actions">
       <el-button size="small" :loading="saving" @click.stop="saveFields">保存</el-button>
       <el-button v-if="!isUniversal" size="small" :loading="busyStep === 'polish'" @click.stop="polishPrompt">润色</el-button>
       <el-button v-if="!isUniversal" size="small" type="primary" :loading="busyStep === 'image'" @click.stop="runStep('image')">生图</el-button>
       <el-button size="small" type="primary" :loading="busyStep === 'video'" @click.stop="runStep('video')">生视频</el-button>
       <el-button size="small" type="warning" :loading="busyStep === 'audio'" @click.stop="runStep('audio')">配音</el-button>
+      <el-button size="small" plain :disabled="!canRetry || !!busyStep" @click.stop="retryCurrent">重试本步</el-button>
       <el-button size="small" type="danger" plain @click.stop="deleteStoryboard">删除</el-button>
     </div>
   </div>
@@ -186,6 +207,7 @@ import {
 } from '@/utils/canvasEntityIds'
 import { runImageStep, runVideoStep, runAudioStep } from '@/composables/useCanvasWorkflowRunner'
 import { findStoryboardInDrama, getDramaGenerationOptions } from '@/utils/canvasWorkflow'
+import { collectStoryboardReferenceImages } from '@/utils/storyboardReferences'
 
 const props = defineProps({
   storyboard: { type: Object, required: true },
@@ -197,6 +219,10 @@ const router = useRouter()
 const ctx = useCanvasContext()
 const saving = ref(false)
 const busyStep = ref('')
+const lastStep = ref('')
+const uniBusy = ref('')
+const uniAbort = ref(null)
+const selectedRefKeys = ref([])
 const characterIds = ref([])
 const sceneId = ref(null)
 const propIds = ref([])
@@ -217,6 +243,8 @@ const isUniversal = computed(() => props.storyboard?.creation_mode === 'universa
 const characters = computed(() => ctx?.drama?.value?.characters || [])
 const scenes = computed(() => ctx?.drama?.value?.scenes || [])
 const propsList = computed(() => ctx?.drama?.value?.props || [])
+const refCandidates = computed(() => collectStoryboardReferenceImages(ctx?.drama?.value, props.storyboard))
+const canRetry = computed(() => !!lastStep.value)
 
 const busyLabel = computed(() => {
   const map = ctx?.nodeStatus?.map
@@ -239,6 +267,9 @@ function syncForm(sb) {
 }
 
 watch(() => props.storyboard, (sb) => syncForm(sb), { immediate: true, deep: true })
+watch(refCandidates, (list) => {
+  selectedRefKeys.value = list.map((r) => r.key)
+}, { immediate: true })
 
 function onSelectVisibleChange(open) {
   if (open) ctx?.suppressPaneClick?.()
@@ -379,15 +410,22 @@ async function runStep(step) {
   }
 
   busyStep.value = step
+  lastStep.value = step
   const statusMsg = CANVAS_NODE_STATUS_LABELS[step] || '处理中…'
-  ctx?.nodeStatus?.set(sbNodeId.value, { step, message: statusMsg })
-  if (step === 'image') ctx?.nodeStatus?.set(`sbimg:${sbId}`, { step, message: statusMsg })
-  if (step === 'video') ctx?.nodeStatus?.set(`sbvid:${sbId}`, { step, message: statusMsg })
+  ctx?.nodeStatus?.setBusy(sbNodeId.value, { step, message: statusMsg })
+  if (step === 'image') ctx?.nodeStatus?.setBusy(`sbimg:${sbId}`, { step, message: statusMsg })
+  if (step === 'video') ctx?.nodeStatus?.setBusy(`sbvid:${sbId}`, { step, message: statusMsg })
   try {
     const found = findStoryboardInDrama(drama, sbId)
     const sb = found?.storyboard || props.storyboard
     const genOpts = ctx?.getGenerationOptions?.() || getDramaGenerationOptions(drama)
-    if (step === 'image') await runImageStep(drama, sb, genOpts)
+    if (step === 'image') {
+      const selected = refCandidates.value.filter((r) => selectedRefKeys.value.includes(r.key)).map((r) => r.url)
+      await runImageStep(drama, sb, {
+        ...genOpts,
+        referenceImages: refCandidates.value.length ? selected : undefined,
+      })
+    }
     else if (step === 'video') await runVideoStep(drama, sb, genOpts)
     else if (step === 'audio') {
       const res = await runAudioStep(sb)
@@ -397,15 +435,55 @@ async function runStep(step) {
       }
     }
     ElMessage.success(step === 'image' ? '生图完成' : step === 'video' ? '视频生成完成' : '配音完成')
+    ctx?.nodeStatus?.setOk(step === 'image' ? `sbimg:${sbId}` : step === 'video' ? `sbvid:${sbId}` : sbNodeId.value, { step, message: '完成' })
     await ctx?.refresh?.()
   } catch (e) {
+    ctx?.nodeStatus?.setError(step === 'image' ? `sbimg:${sbId}` : step === 'video' ? `sbvid:${sbId}` : sbNodeId.value, { step, message: e?.message || '失败' })
     ElMessage.error(e?.message || '生成失败')
   } finally {
     busyStep.value = ''
     ctx?.nodeStatus?.clear(sbNodeId.value)
-    if (step === 'image') ctx?.nodeStatus?.clear(`sbimg:${sbId}`)
-    if (step === 'video') ctx?.nodeStatus?.clear(`sbvid:${sbId}`)
   }
+}
+
+function retryCurrent() {
+  if (lastStep.value) runStep(lastStep.value)
+}
+
+async function streamUniversal(mode) {
+  if (!props.storyboard?.id) return
+  cancelUniStream()
+  const ac = new AbortController()
+  uniAbort.value = ac
+  uniBusy.value = mode === 'polish' ? 'polish' : 'gen'
+  try {
+    const api = mode === 'polish'
+      ? storyboardsAPI.polishUniversalSegmentPromptStream
+      : storyboardsAPI.generateUniversalSegmentPromptStream
+    const body = mode === 'polish'
+      ? { draft_universal_segment_text: form.universal_segment_text }
+      : {}
+    form.universal_segment_text = mode === 'polish' ? form.universal_segment_text : ''
+    const start = form.universal_segment_text
+    if (mode !== 'polish') form.universal_segment_text = ''
+    else form.universal_segment_text = ''
+    const res = await api.call(storyboardsAPI, props.storyboard.id, body, (delta) => {
+      form.universal_segment_text += delta
+    }, ac.signal)
+    if (res?.universal_segment_text) form.universal_segment_text = res.universal_segment_text
+    else if (!form.universal_segment_text) form.universal_segment_text = start
+  } catch (e) {
+    if (e?.name === 'AbortError') ElMessage.info('已取消')
+    else ElMessage.error(e?.message || '生成失败')
+  } finally {
+    uniBusy.value = ''
+    uniAbort.value = null
+  }
+}
+
+function cancelUniStream() {
+  uniAbort.value?.abort?.()
+  uniAbort.value = null
 }
 </script>
 
@@ -494,6 +572,49 @@ async function runStep(step) {
 }
 .panel-actions :deep(.el-button) {
   margin: 0;
+}
+.uni-stream-row {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 10px 36px;
+}
+.ref-block {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(63, 63, 70, 0.6);
+}
+.ref-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #a1a1aa;
+  margin-bottom: 6px;
+}
+.ref-empty {
+  font-size: 11px;
+  color: #71717a;
+}
+.ref-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ref-item {
+  width: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+  color: #d4d4d8;
+  cursor: pointer;
+}
+.ref-item img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #09090b;
 }
 @keyframes pulse-tag {
   0%, 100% { opacity: 1; }

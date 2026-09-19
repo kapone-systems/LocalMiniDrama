@@ -1,5 +1,5 @@
-import { assetImageUrl } from './mediaUrl'
-import { parseDramaMetadata } from './canvasLayout'
+import { assetImageUrl } from './mediaUrl.js'
+import { parseDramaMetadata } from './canvasLayout.js'
 
 export function dramaUsesFirstLastFrame(drama) {
   const meta = parseDramaMetadata(drama?.metadata)

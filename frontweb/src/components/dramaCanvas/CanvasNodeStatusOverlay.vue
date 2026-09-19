@@ -1,7 +1,17 @@
 <template>
-  <div v-if="status" class="node-status-overlay" :class="'step-' + status.step">
-    <span class="spinner" />
-    <span class="msg">{{ status.message }}</span>
+  <div v-if="status" class="node-status-layer" :class="'st-' + status.status">
+    <div v-if="status.status === 'busy'" class="node-status-overlay" :class="'step-' + status.step">
+      <span class="spinner" />
+      <span class="msg">{{ status.message }}</span>
+    </div>
+    <div
+      v-else
+      class="status-badge"
+      :class="status.status"
+      :title="status.message"
+    >
+      {{ status.status === 'error' ? '!' : '✓' }}
+    </div>
   </div>
 </template>
 
@@ -23,10 +33,15 @@ const status = computed(() => {
 </script>
 
 <style scoped>
-.node-status-overlay {
+.node-status-layer {
   position: absolute;
   inset: 0;
   z-index: 2;
+  pointer-events: none;
+}
+.node-status-overlay {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -34,7 +49,6 @@ const status = computed(() => {
   gap: 6px;
   background: rgba(9, 9, 11, 0.72);
   border-radius: inherit;
-  pointer-events: none;
 }
 .spinner {
   width: 22px;
@@ -58,6 +72,27 @@ const status = computed(() => {
   text-align: center;
   padding: 0 8px;
   line-height: 1.3;
+}
+.status-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+}
+.status-badge.error {
+  background: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+.status-badge.ok {
+  background: #10b981;
 }
 @keyframes spin {
   to { transform: rotate(360deg); }

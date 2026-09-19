@@ -35,6 +35,9 @@ export const dramaAPI = {
     if (workflowGroups !== undefined) body.workflow_groups = workflowGroups
     return request.put(`/dramas/${id}/canvas-layout`, body)
   },
+  startWorkflowRun(id, data) {
+    return request.post(`/dramas/${id}/workflow-runs`, data || {})
+  },
   getStoryboards(episodeId) {
     return request.get(`/episodes/${episodeId}/storyboards`)
   },

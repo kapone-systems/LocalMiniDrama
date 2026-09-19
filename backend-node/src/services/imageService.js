@@ -730,9 +730,9 @@ async function processImageGeneration(db, log, imageGenId) {
     if (row.reference_images) {
       try {
         const parsed = JSON.parse(row.reference_images);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           reference_image_urls = parsed;
-          reference_source = 'DB';
+          reference_source = parsed.length ? 'DB' : 'DB-empty';
         }
       } catch (_) {}
     }
@@ -1004,7 +1004,7 @@ async function processImageGeneration(db, log, imageGenId) {
         if (explicitDramaCharIds !== null) {
           skipStep23PromptCharFilter = true;
         }
-        if (refs.length > 0) {
+        if (refs.length > 0 && reference_source !== 'DB' && reference_source !== 'DB-empty') {
           if (!reference_image_urls || reference_image_urls.length === 0) {
             reference_image_urls = refs;
             reference_source = 'storyboard 自动解析';

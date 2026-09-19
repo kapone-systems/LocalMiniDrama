@@ -6,11 +6,12 @@ import request from '@/utils/request'
  * @param {(delta: string) => void} [onDelta]
  * @returns {Promise<{ universal_segment_text: string }>}
  */
-function postUniversalSegmentNdjsonStream(url, body, onDelta) {
+function postUniversalSegmentNdjsonStream(url, body, onDelta, signal) {
   return fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
     body: JSON.stringify(body || {}),
+    signal,
   }).then(async (res) => {
     if (!res.ok) {
       let msg = `请求失败 (${res.status})`
@@ -97,22 +98,24 @@ export const storyboardsAPI = {
     return request.post(`/storyboards/${id}/universal-segment-prompt`, body)
   },
   /** 全能模式生成：NDJSON 流式，可选 body.duration、body.force_without_reference_images */
-  generateUniversalSegmentPromptStream(id, body, onDelta) {
+  generateUniversalSegmentPromptStream(id, body, onDelta, signal) {
     return postUniversalSegmentNdjsonStream(
       `/api/v1/storyboards/${id}/universal-segment-prompt-stream`,
       body,
-      onDelta
+      onDelta,
+      signal,
     )
   },
   /**
    * 流式润色全能片段：NDJSON 行 {type:'delta',text} / {type:'done',universal_segment_text} / {type:'error',message}
    * body.draft_universal_segment_text 为当前编辑区全文；可选 duration、force_without_reference_images
    */
-  polishUniversalSegmentPromptStream(id, body, onDelta) {
+  polishUniversalSegmentPromptStream(id, body, onDelta, signal) {
     return postUniversalSegmentNdjsonStream(
       `/api/v1/storyboards/${id}/universal-segment-polish-stream`,
       body,
-      onDelta
+      onDelta,
+      signal,
     )
   },
   insertBefore(id) {

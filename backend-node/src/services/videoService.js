@@ -566,6 +566,60 @@ async function processVideoGeneration(db, log, videoGenId) {
   }
 }
 
+function createAndStart(db, log, body) {
+  const { normalizeAspectRatioForApi } = require('./videoClient');
+  const task = taskService.createTask(db, log, 'video_generation', String(body.drama_id || ''));
+  const now = new Date().toISOString();
+  const dramaId = Number(body.drama_id) || 0;
+  const storyboardId = body.storyboard_id != null ? Number(body.storyboard_id) : null;
+  const provider = body.provider || 'chatfire';
+  let prompt = body.prompt || '';
+  const style = (body.style || '').toString().trim();
+  if (style) {
+    const baseLower = String(prompt || '').toLowerCase();
+    const styleLower = style.toLowerCase();
+    if (!baseLower.includes(styleLower)) {
+      prompt = prompt ? `${prompt}. Style: ${style}` : `Style: ${style}`;
+    }
+  }
+  const model = body.model ?? null;
+  const duration = body.duration ?? null;
+  let aspectRatio = null;
+  if (body.aspect_ratio != null && String(body.aspect_ratio).trim() !== '') {
+    aspectRatio = normalizeAspectRatioForApi(body.aspect_ratio);
+  }
+  if (!aspectRatio && dramaId) {
+    try {
+      const dramaRow = db.prepare('SELECT metadata FROM dramas WHERE id = ? AND deleted_at IS NULL').get(dramaId);
+      if (dramaRow && dramaRow.metadata) {
+        const meta = typeof dramaRow.metadata === 'string' ? JSON.parse(dramaRow.metadata) : dramaRow.metadata;
+        if (meta && meta.aspect_ratio) aspectRatio = normalizeAspectRatioForApi(meta.aspect_ratio);
+      }
+    } catch (_) {}
+  }
+  const resolution = body.resolution ?? null;
+  const seed = body.seed != null ? Number(body.seed) : null;
+  const cameraFixed = body.camera_fixed != null ? (body.camera_fixed ? 1 : 0) : null;
+  const watermark = body.watermark != null ? (body.watermark ? 1 : 0) : 0;
+  const imageUrl = body.image_url ?? null;
+  const firstFrameUrl = body.first_frame_url ?? body.first_frame_local_path ?? null;
+  const lastFrameUrl = body.last_frame_url ?? body.last_frame_local_path ?? null;
+  const refImagesJson =
+    body.reference_image_urls && Array.isArray(body.reference_image_urls)
+      ? JSON.stringify(body.reference_image_urls.slice(0, 10))
+      : null;
+  db.prepare(
+    `INSERT INTO video_generations (drama_id, storyboard_id, provider, prompt, model, duration, aspect_ratio, resolution, seed, camera_fixed, watermark, image_url, first_frame_url, last_frame_url, reference_image_urls, status, task_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?)`
+  ).run(dramaId, storyboardId, provider, prompt, model, duration, aspectRatio, resolution, seed, cameraFixed, watermark, imageUrl, firstFrameUrl, lastFrameUrl, refImagesJson, task.id, now, now);
+  const videoGenId = db.prepare('SELECT last_insert_rowid() as id').get().id;
+  setImmediate(() => {
+    processVideoGeneration(db, log, videoGenId);
+  });
+  const item = getById(db, videoGenId);
+  return item || { id: videoGenId, task_id: task.id, status: 'processing' };
+}
+
 function deleteById(db, log, id) {
   const now = new Date().toISOString();
   const result = db.prepare('UPDATE video_generations SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL').run(now, Number(id));
@@ -576,6 +630,7 @@ module.exports = {
   list,
   getById,
   deleteById,
+  createAndStart,
   processVideoGeneration,
   resumeProcessingVideoGenerations,
   resumeFailedVideoPoll,

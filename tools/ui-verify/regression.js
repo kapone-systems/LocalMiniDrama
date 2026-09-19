@@ -179,17 +179,23 @@ function check(name, ok, extra = '') {
       sub:document.querySelector('.logo-sub')?.textContent,
       wf:!!document.querySelector('.workflow-bar'), gen:!!document.querySelector('.generate-bar'),
       ep:!!document.querySelector('.episode-select'),
+      drawer:!!document.querySelector('.canvas-tools-drawer'),
       acts:[...document.querySelectorAll('.app-header__actions button')].map(b=>b.textContent.trim())}})()`);
     check('非 sticky（flex-shrink 参与布局）', dc.pos === 'relative' && !dc.sticky, dc.pos + '/sticky=' + dc.sticky);
     check('副标题=画布模式', dc.sub === '画布模式', String(dc.sub));
     check('workflow-bar 保留', dc.wf);
     check('generate-bar 保留', dc.gen);
+    check('生成/工作流抽屉', dc.drawer);
     check('集数筛选保留', dc.ep);
     check('剧本按钮', dc.acts.includes('剧本'));
-    check('6 个新建节点按钮', ['分镜', '角色', '场景', '道具', '集'].every((x) => dc.acts.includes(x)), JSON.stringify(dc.acts));
+    check('新建入口', dc.acts.some((x) => x.includes('新建')), JSON.stringify(dc.acts));
     check('对齐节点按钮', dc.acts.includes('对齐节点'));
     check('列表模式按钮', dc.acts.includes('列表模式'));
     check('主题切换按钮', dc.acts.some((x) => x.includes('浅色') || x.includes('暗色')));
+    await evalJs(`(()=>{const b=[...document.querySelectorAll('.app-header__actions button')].find(x=>x.textContent.includes('新建'));b&&b.click();return 1})()`);
+    await sleep(600);
+    const createItems = await evalJs(`[...document.querySelectorAll('.el-dropdown-menu__item')].map(x=>x.textContent.trim())`);
+    check('新建菜单含分镜角色场景道具集', ['分镜', '角色', '场景', '道具', '集'].every((x) => createItems.includes(x)), JSON.stringify(createItems));
 
     // ── AiConfig ──
     console.log('\nAiConfig:');

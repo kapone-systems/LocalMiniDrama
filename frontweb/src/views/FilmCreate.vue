@@ -2668,6 +2668,15 @@ import { runGenerateStoryFromPremise } from '@/composables/useStoryGeneration'
 import { useCharacters } from '@/composables/filmCreate/useCharacters'
 import { useProps as usePropsComposable } from '@/composables/filmCreate/useProps'
 import { useScenes } from '@/composables/filmCreate/useScenes'
+import {
+  frameTypeForSlot,
+  generateStoryboardFrameImage,
+  linkTailFrameToNext,
+  reusePrevTailAsFirst,
+  ensureProfessionalFramePrompt as sharedEnsureFramePrompt,
+  getCachedFramePromptFromDb as sharedGetCachedFramePrompt,
+  saveStoryboardFramePrompt,
+} from '@/composables/filmCreate/storyboardFrameGenerate'
 
 const route = useRoute()
 const router = useRouter()
@@ -3619,10 +3628,6 @@ function uploadingSbImageSlot(sbId) {
   return sbImageUploadSlotById.value[sbId] || null
 }
 
-function frameTypeForSlot(slot) {
-  return slot === 'last' ? 'storyboard_last' : 'storyboard_first'
-}
-
 function resolveSbImageById(storyboardId, imageId) {
   if (imageId == null) return null
   const images = getSbAllImages(storyboardId)
@@ -4144,40 +4149,24 @@ function buildLastFrameImagePrompt(sbId) {
 
 /** 从 frame_prompts 表读取已生成的专业帧提示词 */
 async function getCachedFramePromptFromDb(sbId, slot) {
-  const frameType = slot === 'last' ? 'last' : 'first'
-  try {
-    const res = await storyboardsAPI.getFramePrompts(sbId)
-    const row = (res?.frame_prompts || []).find((r) => r.frame_type === frameType)
-    return row?.prompt?.trim() || ''
-  } catch (_) {
-    return ''
-  }
+  return sharedGetCachedFramePrompt(sbId, slot)
 }
 
 /**
  * 首尾帧模式：优先走 framePromptService（专用系统提示词 + 文本 AI），失败则回退字段拼接。
  */
 async function ensureProfessionalFramePrompt(sb, slot, { forceRegenerate = false } = {}) {
-  const frameType = slot === 'last' ? 'last' : 'first'
-  if (!forceRegenerate) {
-    const cached = await getCachedFramePromptFromDb(sb.id, slot)
-    if (cached) return cached
-  }
+  const fallback = slot === 'last' ? buildLastFrameImagePrompt(sb.id) : buildFirstFrameImagePrompt(sb.id)
   try {
-    const genRes = await storyboardsAPI.generateFramePrompt(sb.id, { frame_type: frameType })
-    if (!genRes?.task_id) throw new Error('帧提示词任务未创建')
-    const pollRes = await pollTask(genRes.task_id)
-    if (pollRes?.status !== 'completed') {
-      throw new Error(pollRes?.error || '帧提示词生成失败')
-    }
-    const fromTask = pollRes.result?.response?.single_frame?.prompt
-    if (fromTask && String(fromTask).trim()) return String(fromTask).trim()
-    const cached2 = await getCachedFramePromptFromDb(sb.id, slot)
-    if (cached2) return cached2
+    return await sharedEnsureFramePrompt(sb, slot, {
+      forceRegenerate,
+      fallbackPrompt: fallback,
+      pollTask,
+    })
   } catch (e) {
     console.warn('[首尾帧] 专业帧提示词生成失败，使用拼接回退', e?.message)
+    return fallback
   }
-  return slot === 'last' ? buildLastFrameImagePrompt(sb.id) : buildFirstFrameImagePrompt(sb.id)
 }
 
 /** 打开首尾帧提示词编辑器（显示最终发给AI生图的完整提示词，支持编辑保存） */
@@ -4208,8 +4197,7 @@ async function saveEditingFramePrompt() {
   }
   editingFramePromptSaving.value = true
   try {
-    const frameType = slot === 'last' ? 'last' : 'first'
-    await storyboardsAPI.saveFramePrompt(sb.id, frameType, { prompt: text })
+    await saveStoryboardFramePrompt(sb.id, slot, text)
     ElMessage.success('提示词已保存，后续生成将使用此版本')
     showFramePromptEditor.value = false
   } catch (e) {
@@ -4290,16 +4278,15 @@ async function onGenerateSbFrameImage(sb, slot) {
         }
       }
     }
-    const res = await imagesAPI.create({
-      storyboard_id: sb.id,
-      drama_id: dramaId.value,
+    const res = await generateStoryboardFrameImage({
+      dramaId: dramaId.value,
+      sb,
+      slot,
       prompt,
-      model: undefined,
       style: getSelectedStyle(),
-      frame_type: frameTypeForSlot(slot),
-      aspect_ratio: projectAspectRatio.value || '16:9',
-      reference_images: refImagesForCreate,
-      use_first_frame_layout_lock: isLast ? !!lastFrameUseFirstLayoutLock.value : undefined,
+      aspectRatio: projectAspectRatio.value || '16:9',
+      referenceImages: refImagesForCreate,
+      useFirstFrameLayoutLock: isLast ? !!lastFrameUseFirstLayoutLock.value : undefined,
     })
     ElMessage.success(isLast ? '尾帧生成任务已提交' : '首帧生成任务已提交')
     if (res?.task_id) {
@@ -6688,7 +6675,7 @@ async function onLinkTailFrameToNext(sb) {
   }
   linkingTailFrameIds.add(sb.id)
   try {
-    const data = await storyboardsAPI.linkTailFrame(sb.id, { drama_id: dramaId.value })
+    const data = await linkTailFrameToNext(sb.id, dramaId.value)
     if (data?.error) {
       throw new Error(data.error)
     }
@@ -6723,13 +6710,11 @@ async function onUsePrevTailAsFirst(sb) {
   usingPrevTailAsFirstIds.add(sb.id)
   try {
     // 通过 upload 接口在“当前分镜”下创建一个 image 记录（复用上一镜尾帧的物理文件路径/URL），frame_type 触发后端自动 bind
-    const uploaded = await imagesAPI.upload({
-      storyboard_id: sb.id,
-      drama_id: dramaId.value,
-      image_url: prevLastImg.image_url || '',
-      local_path: prevLastImg.local_path || undefined,
-      prompt: `上镜尾帧（直接复用 #${prevSb.storyboard_number ?? prevSb.id} 尾帧高清原图）`,
-      frame_type: 'storyboard_first'
+    const uploaded = await reusePrevTailAsFirst({
+      dramaId: dramaId.value,
+      sb,
+      prevSb,
+      prevLastImg,
     })
     if (uploaded?.id) {
       // 手动设置本地选中，确保显示立即切换；同时调用 onSelect 做一次 server patch（与 upload 里的 bind 互补）

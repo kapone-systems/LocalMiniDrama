@@ -1,6 +1,6 @@
-import { parseCanvasLayout, resolveNodePosition } from './canvasLayout'
-import { getStoryboardGroupMap, parseWorkflowGroups } from './canvasWorkflow'
-import { assetImageUrl, storyboardImageUrl, storyboardVideoUrl, audioUrl } from './mediaUrl'
+import { parseCanvasLayout, resolveNodePosition } from './canvasLayout.js'
+import { getStoryboardGroupMap, parseWorkflowGroups } from './canvasWorkflow.js'
+import { assetImageUrl, storyboardImageUrl, storyboardVideoUrl, audioUrl } from './mediaUrl.js'
 import {
   dramaUsesFirstLastFrame,
   imageRecordUrl,
@@ -9,7 +9,7 @@ import {
   resolveSbMainImageRecord,
   resolveSbVideoRecord,
   videoRecordUrl,
-} from './storyboardMedia'
+} from './storyboardMedia.js'
 
 const ASSET_X = 48
 const SCRIPT_OFFSET_X = 248
@@ -63,8 +63,53 @@ function sectionLabel(id, label, x, y) {
       }
 }
 
+function groupFrameColor(id) {
+  let h = 0
+  for (const ch of String(id || '')) h = (h * 33 + ch.charCodeAt(0)) % 360
+  return {
+    fill: `hsla(${h}, 65%, 55%, 0.12)`,
+    stroke: `hsla(${h}, 70%, 60%, 0.55)`,
+  }
+}
+
+function appendWorkflowGroupFrames(nodes, workflowGroups) {
+  const frames = []
+  for (const group of workflowGroups || []) {
+    const ids = new Set((group.storyboard_ids || []).map(Number))
+    const sbNodes = nodes.filter(
+      (n) => n.type === 'canvasStoryboard' && ids.has(Number(n.data?.storyboard?.id)),
+    )
+    if (!sbNodes.length) continue
+    const padX = 32
+    const padTop = 56
+    const padBottom = 40
+    const minX = Math.min(...sbNodes.map((n) => n.position.x)) - padX
+    const minY = Math.min(...sbNodes.map((n) => n.position.y)) - padTop
+    const maxX = Math.max(...sbNodes.map((n) => n.position.x + 208)) + padX
+    const maxY = Math.max(...sbNodes.map((n) => n.position.y + 118)) + padBottom
+    const color = groupFrameColor(group.id)
+    frames.push(makeNode({
+      id: `wfgroup:${group.id}`,
+      type: 'canvasGroupFrame',
+      position: { x: minX, y: minY },
+      style: { width: `${maxX - minX}px`, height: `${maxY - minY}px`, zIndex: -1 },
+      zIndex: -1,
+      data: {
+        group,
+        width: maxX - minX,
+        height: maxY - minY,
+        color,
+      },
+      draggable: false,
+      selectable: true,
+      connectable: false,
+    }))
+  }
+  return frames
+}
+
 function makeNode(base) {
-  const fixed = base.type === 'canvasLabel' || base.type === 'canvasAddButton'
+  const fixed = base.type === 'canvasLabel' || base.type === 'canvasAddButton' || base.type === 'canvasGroupFrame'
   const draggable = base.draggable ?? !fixed
   return { ...base, draggable }
 }
@@ -114,9 +159,8 @@ function universalSegmentText(sb) {
 }
 
 function appendUniversalNode(nodes, edges, ctx) {
-  const { savedLayout, sb, sbId, fromId, mediaX, mediaY, uniId } = ctx
+  const { savedLayout, sb, fromId, mediaX, mediaY, uniId } = ctx
   const text = universalSegmentText(sb)
-  if (!text) return fromId
   nodes.push(makeNode({
     id: uniId,
     type: 'canvasMedia',
@@ -125,6 +169,7 @@ function appendUniversalNode(nodes, edges, ctx) {
       kind: 'universal',
       storyboard: sb,
       summary: text,
+      empty: !text,
     },
   }))
   edges.push(makeEdge({
@@ -138,9 +183,8 @@ function appendUniversalNode(nodes, edges, ctx) {
 
 function appendMediaImageNode(nodes, edges, ctx) {
   const {
-    savedLayout, sb, sbId, fromId, mediaX, mediaY, imgId, url, frameKind, frameLabel,
+    savedLayout, sb, fromId, mediaX, mediaY, imgId, url, frameKind, frameLabel,
   } = ctx
-  if (!url) return fromId
   nodes.push(makeNode({
     id: imgId,
     type: 'canvasMedia',
@@ -148,7 +192,8 @@ function appendMediaImageNode(nodes, edges, ctx) {
     data: {
       kind: 'image',
       storyboard: sb,
-      url,
+      url: url || '',
+      empty: !url,
       frameKind: frameKind || null,
       frameLabel: frameLabel || null,
     },
@@ -160,6 +205,53 @@ function appendMediaImageNode(nodes, edges, ctx) {
     style: PIPELINE_EDGE_STYLE,
   }))
   return imgId
+}
+
+function appendMediaVideoNode(nodes, edges, ctx) {
+  const { savedLayout, sb, fromId, mediaX, mediaY, vidId, url } = ctx
+  nodes.push(makeNode({
+    id: vidId,
+    type: 'canvasMedia',
+    position: resolveNodePosition(savedLayout, vidId, { x: mediaX, y: mediaY }),
+    data: {
+      kind: 'video',
+      storyboard: sb,
+      url: url || '',
+      empty: !url,
+    },
+  }))
+  edges.push(makeEdge({
+    id: `e-${fromId}-${vidId}`,
+    source: fromId,
+    target: vidId,
+    style: PIPELINE_EDGE_STYLE,
+  }))
+  return vidId
+}
+
+function appendMediaAudioNode(nodes, edges, ctx) {
+  const { savedLayout, sb, sbId, mediaX, mediaY, audId, url } = ctx
+  const hasDialogue = !!(sb?.dialogue || '').trim()
+  nodes.push(makeNode({
+    id: audId,
+    type: 'canvasMedia',
+    position: resolveNodePosition(savedLayout, audId, { x: mediaX, y: mediaY }),
+    data: {
+      kind: 'audio',
+      storyboard: sb,
+      url: url || '',
+      audioType: 'dialogue',
+      empty: !url,
+      skippedReason: hasDialogue ? null : '无对白',
+    },
+  }))
+  edges.push(makeEdge({
+    id: `e-sb-aud-${sb.id}`,
+    source: sbId,
+    target: audId,
+    style: { stroke: '#fbbf24', strokeWidth: 1.5 },
+  }))
+  return audId
 }
 
 function buildEpisodePipeline(episode, savedLayout, startY, options = {}) {
@@ -186,7 +278,7 @@ function buildEpisodePipeline(episode, savedLayout, startY, options = {}) {
     id: epId,
     type: 'canvasEpisode',
     position: resolveNodePosition(savedLayout, epId, { x: PIPELINE_X, y: startY }),
-    data: { episode },
+    data: { episode, collapsed: !!options.collapseStoryboards },
   }))
   edges.push(makeEdge({
     id: `e-script-${episode.id}-ep`,
@@ -194,6 +286,27 @@ function buildEpisodePipeline(episode, savedLayout, startY, options = {}) {
     target: epId,
     style: SCRIPT_EDGE_STYLE,
   }))
+
+  if (options.collapseStoryboards) {
+    const stubId = `episode-stub:${episode.id}`
+    nodes.push(makeNode({
+      id: stubId,
+      type: 'canvasEpisode',
+      position: resolveNodePosition(savedLayout, stubId, { x: PIPELINE_X + MEDIA_OFFSET_X, y: startY }),
+      data: {
+        episode,
+        collapsed: true,
+        stub: true,
+      },
+    }))
+    edges.push(makeEdge({
+      id: `e-ep-stub-${episode.id}`,
+      source: epId,
+      target: stubId,
+      style: PIPELINE_EDGE_STYLE,
+    }))
+    return { nodes, edges, nextY: startY + 96, rowWidth: SB_PIPELINE_WIDTH }
+  }
 
   const rowYBase = startY + 56
   let prevSbId = null
@@ -222,13 +335,10 @@ function buildEpisodePipeline(episode, savedLayout, startY, options = {}) {
 
     if (isUniversal) {
       const uniId = `sbuni:${sb.id}`
-      const nextId = appendUniversalNode(nodes, edges, {
+      pipelineTailId = appendUniversalNode(nodes, edges, {
         savedLayout, sb, sbId, fromId: sbId, mediaX, mediaY, uniId,
       })
-      if (nextId !== sbId) {
-        pipelineTailId = nextId
-        mediaX += MEDIA_GAP_X
-      }
+      mediaX += MEDIA_GAP_X
     } else {
       const txtId = `sbtxt:${sb.id}`
       nodes.push(makeNode({
@@ -247,72 +357,51 @@ function buildEpisodePipeline(episode, savedLayout, startY, options = {}) {
       mediaX += MEDIA_GAP_X
       pipelineTailId = txtId
 
-      const useFirstLast = useFirstLastFrame
-
-      if (useFirstLast) {
+      if (useFirstLastFrame) {
         const firstUrl = imageRecordUrl(resolveSbFirstImageRecord(sb, imagesBySbId))
-        if (firstUrl) {
-          const imgId = `sbimg-first:${sb.id}`
-          pipelineTailId = appendMediaImageNode(nodes, edges, {
-            savedLayout, sb, sbId, fromId: pipelineTailId, mediaX, mediaY, imgId, url: firstUrl,
-            frameKind: 'first', frameLabel: '首帧',
-          })
-          mediaX += MEDIA_GAP_X
-        }
+        pipelineTailId = appendMediaImageNode(nodes, edges, {
+          savedLayout, sb, sbId, fromId: pipelineTailId, mediaX, mediaY,
+          imgId: `sbimg-first:${sb.id}`, url: firstUrl,
+          frameKind: 'first', frameLabel: '首帧',
+        })
+        mediaX += MEDIA_GAP_X
         const lastUrl = imageRecordUrl(resolveSbLastImageRecord(sb, imagesBySbId))
-        if (lastUrl) {
-          const imgId = `sbimg-last:${sb.id}`
-          pipelineTailId = appendMediaImageNode(nodes, edges, {
-            savedLayout, sb, sbId, fromId: pipelineTailId, mediaX, mediaY, imgId, url: lastUrl,
-            frameKind: 'last', frameLabel: '尾帧',
-          })
-          mediaX += MEDIA_GAP_X
-        }
+        pipelineTailId = appendMediaImageNode(nodes, edges, {
+          savedLayout, sb, sbId, fromId: pipelineTailId, mediaX, mediaY,
+          imgId: `sbimg-last:${sb.id}`, url: lastUrl,
+          frameKind: 'last', frameLabel: '尾帧',
+        })
+        mediaX += MEDIA_GAP_X
       } else {
         const mainUrl = imageRecordUrl(resolveSbMainImageRecord(sb, imagesBySbId)) || storyboardImageUrl(sb)
-        if (mainUrl) {
-          const imgId = `sbimg:${sb.id}`
-          pipelineTailId = appendMediaImageNode(nodes, edges, {
-            savedLayout, sb, sbId, fromId: pipelineTailId, mediaX, mediaY, imgId, url: mainUrl,
-            frameKind: null, frameLabel: '分镜图',
-          })
-          mediaX += MEDIA_GAP_X
-        }
+        pipelineTailId = appendMediaImageNode(nodes, edges, {
+          savedLayout, sb, sbId, fromId: pipelineTailId, mediaX, mediaY,
+          imgId: `sbimg:${sb.id}`, url: mainUrl,
+          frameKind: null, frameLabel: '分镜图',
+        })
+        mediaX += MEDIA_GAP_X
       }
     }
 
     const vidUrl = videoRecordUrl(resolveSbVideoRecord(sb, videosBySbId)) || storyboardVideoUrl(sb)
-    if (vidUrl) {
-      const vidId = `sbvid:${sb.id}`
-      nodes.push(makeNode({
-        id: vidId,
-        type: 'canvasMedia',
-        position: resolveNodePosition(savedLayout, vidId, { x: mediaX, y: mediaY }),
-        data: { kind: 'video', storyboard: sb, url: vidUrl },
-      }))
-      edges.push(makeEdge({
-        id: `e-${pipelineTailId}-${vidId}`,
-        source: pipelineTailId,
-        target: vidId,
-        style: PIPELINE_EDGE_STYLE,
-      }))
-      mediaX += MEDIA_GAP_X
-    }
+    pipelineTailId = appendMediaVideoNode(nodes, edges, {
+      savedLayout, sb, fromId: pipelineTailId, mediaX, mediaY,
+      vidId: `sbvid:${sb.id}`, url: vidUrl,
+    })
+    mediaX += MEDIA_GAP_X
 
-    if (sb.audio_local_path) {
-      const audId = `sbaud:${sb.id}:dialogue`
-      nodes.push(makeNode({
-        id: audId,
-        type: 'canvasMedia',
-        position: resolveNodePosition(savedLayout, audId, { x: mediaX, y: mediaY }),
-        data: { kind: 'audio', storyboard: sb, url: audioUrl(sb.audio_local_path), audioType: 'dialogue' },
-      }))
-      edges.push(makeEdge({
-        id: `e-sb-aud-${sb.id}`,
-        source: sbId,
-        target: audId,
-        style: { stroke: '#fbbf24', strokeWidth: 1.5 },
-      }))
+    if (!isUniversal) {
+      appendMediaAudioNode(nodes, edges, {
+        savedLayout, sb, sbId, mediaX, mediaY,
+        audId: `sbaud:${sb.id}:dialogue`,
+        url: sb.audio_local_path ? audioUrl(sb.audio_local_path) : '',
+      })
+    } else if (sb.audio_local_path) {
+      appendMediaAudioNode(nodes, edges, {
+        savedLayout, sb, sbId, mediaX, mediaY,
+        audId: `sbaud:${sb.id}:dialogue`,
+        url: audioUrl(sb.audio_local_path),
+      })
     }
 
     const charIds = Array.isArray(sb.characters) ? sb.characters : []
@@ -410,11 +499,16 @@ export function buildDramaCanvasGraph(drama, options = {}) {
   let pipelineY = 88
   let maxPipelineX = PIPELINE_X
 
+  const collapsedEpisodeIds = options.collapsedEpisodeIds instanceof Set
+    ? options.collapsedEpisodeIds
+    : new Set(options.collapsedEpisodeIds || [])
+
   for (const ep of episodes) {
     const block = buildEpisodePipeline(ep, savedLayout, pipelineY, {
       ...options,
       workflowGroupMap,
       useFirstLastFrame,
+      collapseStoryboards: collapsedEpisodeIds.has(ep.id),
     })
     nodes.push(...block.nodes)
     edges.push(...block.edges)
@@ -425,6 +519,9 @@ export function buildDramaCanvasGraph(drama, options = {}) {
   if (!episodes.length) {
     nodes.push(sectionLabel('label:empty', '暂无剧集，可点顶栏「+ 集」或右键空白处新建', PIPELINE_X, pipelineY))
   }
+
+  const groupFrames = appendWorkflowGroupFrames(nodes, options.workflowGroups ?? parseWorkflowGroups(drama.metadata))
+  if (groupFrames.length) nodes.unshift(...groupFrames)
 
   return {
     nodes,
@@ -470,8 +567,8 @@ export function getAssetRelationHighlight(drama, assetNodeId) {
       nodeIds.add(`sbimg:${sb.id}`)
       nodeIds.add(`sbimg-first:${sb.id}`)
       nodeIds.add(`sbimg-last:${sb.id}`)
-      if (storyboardVideoUrl(sb)) nodeIds.add(`sbvid:${sb.id}`)
-      if (sb.audio_local_path) nodeIds.add(`sbaud:${sb.id}:dialogue`)
+      nodeIds.add(`sbvid:${sb.id}`)
+      nodeIds.add(`sbaud:${sb.id}:dialogue`)
 
       if (prefix === 'char') edgeIds.add(`e-char-${entityId}-sb-${sb.id}`)
       if (prefix === 'scene') edgeIds.add(`e-scene-${entityId}-sb-${sb.id}`)

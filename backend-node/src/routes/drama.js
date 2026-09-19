@@ -279,6 +279,21 @@ function generateStoryboard(db, log) {
   };
 }
 
+function startWorkflowRun(db, log) {
+  return (req, res) => {
+    try {
+      const workflowRunService = require('../services/workflowRunService');
+      const result = workflowRunService.startWorkflowRun(db, log, req.params.id, req.body || {});
+      response.success(res, result);
+    } catch (err) {
+      if (err.code === 'NOT_FOUND') return response.notFound(res, err.message);
+      if (err.code === 'BAD_REQUEST') return response.badRequest(res, err.message);
+      log.error('Start workflow run failed', { error: err.message });
+      response.internalError(res, err.message || '创建工作流任务失败');
+    }
+  };
+}
+
 module.exports = function dramaRoutes(db, cfg, log) {
   return {
     createDrama: createDrama(db, log),
@@ -293,6 +308,7 @@ module.exports = function dramaRoutes(db, cfg, log) {
     saveEpisodes: saveEpisodes(db, log),
     saveProgress: saveProgress(db, log),
     saveCanvasLayout: saveCanvasLayout(db, log),
+    startWorkflowRun: startWorkflowRun(db, log),
     listProps: listProps(db),
     finalizeEpisode: finalizeEpisode(db, log, cfg),
     downloadEpisodeVideo: downloadEpisodeVideo(db),

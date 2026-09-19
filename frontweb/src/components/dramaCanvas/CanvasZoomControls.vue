@@ -38,41 +38,51 @@
     >
       <el-icon :size="16"><FullScreen /></el-icon>
     </button>
+    <button
+      type="button"
+      class="zoom-btn help"
+      title="快捷键"
+      aria-label="快捷键"
+      @click.stop="onHelp"
+    >
+      ?
+    </button>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { FullScreen, Minus, Plus } from '@element-plus/icons-vue'
+import { useVueFlow } from '@vue-flow/core'
 import { useCanvasContext } from '@/composables/useCanvasContext'
 import { CANVAS_MAX_ZOOM, CANVAS_MIN_ZOOM } from '@/utils/canvasLayout'
 
 const ctx = useCanvasContext()
-const ZOOM_ANIM = { duration: 160 }
+const { zoomIn, zoomOut, zoomTo, fitView } = useVueFlow()
 
 const zoom = computed(() => Number(ctx?.currentViewport?.value?.zoom) || 1)
 const zoomLabel = computed(() => `${Math.round(zoom.value * 100)}%`)
 const atMin = computed(() => zoom.value <= CANVAS_MIN_ZOOM + 0.0001)
 const atMax = computed(() => zoom.value >= CANVAS_MAX_ZOOM - 0.0001)
 
-function flow() {
-  return ctx?.canvasFlowApi?.value
-}
-
 function onZoomOut() {
-  flow()?.zoomOut?.(ZOOM_ANIM)
+  zoomOut()
 }
 
 function onZoomIn() {
-  flow()?.zoomIn?.(ZOOM_ANIM)
+  zoomIn()
 }
 
 function onResetZoom() {
-  flow()?.zoomTo?.(1, ZOOM_ANIM)
+  zoomTo(1)
 }
 
 function onFitView() {
-  flow()?.fitView?.({ padding: 0.14, duration: 280, includeHiddenNodes: false })
+  fitView({ padding: 0.14, includeHiddenNodes: false })
+}
+
+function onHelp() {
+  ctx?.openShortcutHelp?.()
 }
 </script>
 
@@ -123,10 +133,15 @@ function onFitView() {
   font-variant-numeric: tabular-nums;
   color: var(--text-primary, #e4e4e7);
 }
-.zoom-btn.fit {
+.zoom-btn.fit,
+.zoom-btn.help {
   margin-left: 4px;
   border-left: 1px solid var(--border-muted, #3f3f46);
-  border-radius: 0 8px 8px 0;
+  border-radius: 0;
   padding-left: 8px;
+}
+.zoom-btn.help {
+  border-radius: 0 8px 8px 0;
+  font-weight: 700;
 }
 </style>

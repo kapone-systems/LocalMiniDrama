@@ -1,37 +1,29 @@
 <template>
-  <div class="canvas-node-stack">
-    <div
-      class="canvas-asset-node"
-      :class="[
-        'kind-' + data.kind,
-        {
-          highlighted: data.highlighted,
-          dimmed: data.dimmed,
-          focused: showPanel,
-          processing: isNodeBusy || entityStatus === 'processing',
-        },
-      ]"
-    >
-      <Handle type="source" :position="Position.Right" />
-      <div class="cover">
-        <img v-if="thumbUrl && !isNodeBusy" :src="thumbUrl" alt="" />
-        <div v-else-if="!isNodeBusy" class="cover-placeholder">{{ kindIcon }}</div>
-        <CanvasNodeStatusOverlay :node-id="id" />
-      </div>
-      <div class="info">
-        <div class="name-row">
-          <span class="name">{{ displayName }}</span>
-          <span v-if="statusChip" class="status-chip" :class="'st-' + statusChip.key">{{ statusChip.label }}</span>
-        </div>
-        <div class="kind">{{ kindLabel }}</div>
-      </div>
+  <div
+    class="canvas-asset-node"
+    :class="[
+      'kind-' + data.kind,
+      {
+        highlighted: data.highlighted,
+        dimmed: data.dimmed,
+        focused: isFocused,
+        processing: isNodeBusy || entityStatus === 'processing',
+      },
+    ]"
+  >
+    <Handle type="source" :position="Position.Right" />
+    <div class="cover">
+      <img v-if="thumbUrl && !isNodeBusy" :src="thumbUrl" alt="" />
+      <div v-else-if="!isNodeBusy" class="cover-placeholder">{{ kindIcon }}</div>
+      <CanvasNodeStatusOverlay :node-id="id" />
     </div>
-    <CanvasAssetPanel
-      v-if="showPanel"
-      :kind="data.kind"
-      :entity="data.entity"
-      :node-id="id"
-    />
+    <div class="info">
+      <div class="name-row">
+        <span class="name">{{ displayName }}</span>
+        <span v-if="statusChip" class="status-chip" :class="'st-' + statusChip.key">{{ statusChip.label }}</span>
+      </div>
+      <div class="kind">{{ kindLabel }}</div>
+    </div>
   </div>
 </template>
 
@@ -40,7 +32,6 @@ import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { assetImageUrl } from '@/utils/mediaUrl'
 import { useCanvasContext } from '@/composables/useCanvasContext'
-import CanvasAssetPanel from './CanvasAssetPanel.vue'
 import CanvasNodeStatusOverlay from './CanvasNodeStatusOverlay.vue'
 
 const props = defineProps({
@@ -49,7 +40,7 @@ const props = defineProps({
 })
 
 const ctx = useCanvasContext()
-const showPanel = computed(() => ctx?.focusedNodeId?.value === props.id)
+const isFocused = computed(() => ctx?.focusedNodeId?.value === props.id)
 
 const kindLabel = computed(() => {
   const map = { character: '角色', scene: '场景', prop: '道具' }
@@ -69,15 +60,11 @@ const displayName = computed(() => {
 const thumbUrl = computed(() => assetImageUrl(props.data.entity))
 const entityStatus = computed(() => props.data.entity?.status || '')
 
-const isNodeBusy = computed(() => {
-  const map = ctx?.nodeStatus?.map
-  return map ? !!map[props.id] : false
-})
+const isNodeBusy = computed(() => ctx?.nodeStatus?.isBusy?.(props.id) || false)
 
 const statusChip = computed(() => {
-  const map = ctx?.nodeStatus?.map
-  const busy = map?.[props.id]
-  if (busy) return { key: 'busy', label: busy.message?.slice(0, 8) || '处理中' }
+  const busy = ctx?.nodeStatus?.get?.(props.id)
+  if (busy?.status === 'busy') return { key: 'busy', label: busy.message?.slice(0, 8) || '处理中' }
   const s = entityStatus.value
   if (s === 'processing') return { key: 'processing', label: '生成中' }
   if (s === 'failed') return { key: 'failed', label: '失败' }
@@ -87,11 +74,6 @@ const statusChip = computed(() => {
 </script>
 
 <style scoped>
-.canvas-node-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
 .canvas-asset-node {
   position: relative;
   width: 176px;

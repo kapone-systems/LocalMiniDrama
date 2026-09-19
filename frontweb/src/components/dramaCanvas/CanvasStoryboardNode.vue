@@ -1,31 +1,33 @@
 <template>
-  <div class="canvas-node-stack">
-    <div class="canvas-sb-node" :class="{ selected: selected, highlighted: data.highlighted, dimmed: data.dimmed, processing: isProcessing || isNodeBusy, focused: showPanel }">
+  <div
+    class="canvas-sb-node"
+    :class="{
+      selected: selected,
+      highlighted: data.highlighted,
+      dimmed: data.dimmed,
+      processing: isProcessing || isNodeBusy,
+      focused: isFocused,
+      flash: isFlash,
+    }"
+  >
     <Handle id="chain-in" type="target" :position="Position.Top" />
     <Handle type="target" :position="Position.Left" />
     <Handle type="source" :position="Position.Right" />
     <Handle id="chain-out" type="source" :position="Position.Bottom" />
-      <CanvasNodeStatusOverlay :node-id="id" />
-      <div class="head">
-        <span class="num">#{{ data.storyboard?.storyboard_number ?? data.index }}</span>
-        <span v-if="data.workflowGroup?.title" class="wf-badge">{{ data.workflowGroup.title }}</span>
-        <span v-if="data.storyboard?.segment_title" class="seg">{{ data.storyboard.segment_title }}</span>
+    <CanvasNodeStatusOverlay :node-id="id" />
+    <div class="head">
+      <span class="num">#{{ data.storyboard?.storyboard_number ?? data.index }}</span>
+      <span v-if="data.workflowGroup?.title" class="wf-badge">{{ data.workflowGroup.title }}</span>
+      <span v-if="data.storyboard?.segment_title" class="seg">{{ data.storyboard.segment_title }}</span>
       <span v-if="data.storyboard?.creation_mode === 'universal'" class="mode-badge">全能</span>
-      </div>
-      <div class="title">{{ data.storyboard?.title || '分镜' }}</div>
-      <div class="chips">
-        <span v-if="data.storyboard?.shot_type">{{ data.storyboard.shot_type }}</span>
-        <span v-if="data.storyboard?.duration">{{ data.storyboard.duration }}s</span>
-        <span :class="'st-' + (data.storyboard?.status || 'pending')">{{ statusLabel }}</span>
-      </div>
-      <div class="hint">{{ showPanel ? '下方可编辑与生成' : '单击展开操作 · 双击进列表' }}</div>
     </div>
-    <CanvasStoryboardPanel
-      v-if="showPanel"
-      :storyboard="data.storyboard"
-      :episode-id="data.episodeId"
-      :node-id="id"
-    />
+    <div class="title">{{ data.storyboard?.title || '分镜' }}</div>
+    <div class="chips">
+      <span v-if="data.storyboard?.shot_type">{{ data.storyboard.shot_type }}</span>
+      <span v-if="data.storyboard?.duration">{{ data.storyboard.duration }}s</span>
+      <span :class="'st-' + (data.storyboard?.status || 'pending')">{{ statusLabel }}</span>
+    </div>
+    <div class="hint">单击右侧编辑 · 双击进列表</div>
   </div>
 </template>
 
@@ -33,7 +35,6 @@
 import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { useCanvasContext } from '@/composables/useCanvasContext'
-import CanvasStoryboardPanel from './CanvasStoryboardPanel.vue'
 import CanvasNodeStatusOverlay from './CanvasNodeStatusOverlay.vue'
 
 const props = defineProps({
@@ -43,7 +44,8 @@ const props = defineProps({
 })
 
 const ctx = useCanvasContext()
-const showPanel = computed(() => ctx?.focusedNodeId?.value === props.id)
+const isFocused = computed(() => ctx?.focusedNodeId?.value === props.id)
+const isFlash = computed(() => !!(ctx?.flashNodeIds?.value || []).includes(props.id))
 
 const statusLabel = computed(() => {
   const s = props.data.storyboard?.status || 'pending'
@@ -53,18 +55,10 @@ const statusLabel = computed(() => {
 
 const isProcessing = computed(() => props.data.storyboard?.status === 'processing')
 
-const isNodeBusy = computed(() => {
-  const map = ctx?.nodeStatus?.map
-  return map ? !!map[props.id] : false
-})
+const isNodeBusy = computed(() => ctx?.nodeStatus?.isBusy?.(props.id) || false)
 </script>
 
 <style scoped>
-.canvas-node-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
 .canvas-sb-node {
   position: relative;
   width: 200px;
@@ -80,6 +74,9 @@ const isNodeBusy = computed(() => {
 .canvas-sb-node.focused {
   border-color: #818cf8;
   box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.35), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.canvas-sb-node.flash {
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.85);
 }
 .head {
   display: flex;

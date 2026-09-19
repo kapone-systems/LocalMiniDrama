@@ -1,32 +1,25 @@
 <template>
-  <div class="canvas-node-stack">
-    <div
-      class="canvas-script-node"
-      :class="{
-        focused: showPanel,
-        empty: !hasScript,
-        processing: isNodeBusy,
-      }"
-    >
-      <Handle type="source" :position="Position.Right" />
-      <CanvasNodeStatusOverlay :node-id="id" />
-      <div class="head">
-        <span class="badge">📜 剧本</span>
-        <span class="ep">第 {{ data.episode?.episode_number ?? '?' }} 集</span>
-      </div>
-      <div class="preview">{{ previewText }}</div>
-      <div class="meta">
-        <span>{{ charCount }} 角色</span>
-        <span>{{ sceneCount }} 场景</span>
-        <span>{{ propCount }} 道具</span>
-      </div>
-      <div class="hint">{{ showPanel ? '下方可编辑与提取' : '单击展开 · 创作起点' }}</div>
+  <div
+    class="canvas-script-node"
+    :class="{
+      focused: isFocused,
+      empty: !hasScript,
+      processing: isNodeBusy,
+    }"
+  >
+    <Handle type="source" :position="Position.Right" />
+    <CanvasNodeStatusOverlay :node-id="id" />
+    <div class="head">
+      <span class="badge">📜 剧本</span>
+      <span class="ep">第 {{ data.episode?.episode_number ?? '?' }} 集</span>
     </div>
-    <CanvasScriptPanel
-      v-if="showPanel"
-      :episode="data.episode"
-      :node-id="id"
-    />
+    <div class="preview">{{ previewText }}</div>
+    <div class="meta">
+      <span>{{ charCount }} 角色</span>
+      <span>{{ sceneCount }} 场景</span>
+      <span>{{ propCount }} 道具</span>
+    </div>
+    <div class="hint">{{ isFocused ? '右侧可编辑与提取' : '单击展开 · 创作起点' }}</div>
   </div>
 </template>
 
@@ -34,7 +27,6 @@
 import { computed } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { useCanvasContext } from '@/composables/useCanvasContext'
-import CanvasScriptPanel from './CanvasScriptPanel.vue'
 import CanvasNodeStatusOverlay from './CanvasNodeStatusOverlay.vue'
 
 const props = defineProps({
@@ -43,7 +35,7 @@ const props = defineProps({
 })
 
 const ctx = useCanvasContext()
-const showPanel = computed(() => ctx?.focusedNodeId?.value === props.id)
+const isFocused = computed(() => ctx?.focusedNodeId?.value === props.id)
 
 const hasScript = computed(() => !!(props.data.episode?.script_content || '').trim())
 const previewText = computed(() => {
@@ -55,18 +47,10 @@ const charCount = computed(() => (ctx?.drama?.value?.characters || []).length)
 const sceneCount = computed(() => (ctx?.drama?.value?.scenes || []).length)
 const propCount = computed(() => (ctx?.drama?.value?.props || []).length)
 
-const isNodeBusy = computed(() => {
-  const map = ctx?.nodeStatus?.map
-  return map ? !!map[props.id] : false
-})
+const isNodeBusy = computed(() => ctx?.nodeStatus?.isBusy?.(props.id) || false)
 </script>
 
 <style scoped>
-.canvas-node-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
 .canvas-script-node {
   position: relative;
   width: 220px;

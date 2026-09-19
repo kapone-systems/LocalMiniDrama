@@ -58,6 +58,20 @@ function updateTaskResult(db, taskId, result) {
   ).run(resultStr, now, now, taskId);
 }
 
+function updateTaskSnapshot(db, taskId, { progress, message, result, status } = {}) {
+  const now = new Date().toISOString();
+  const resultStr = result == null ? null : (typeof result === 'string' ? result : JSON.stringify(result));
+  if (resultStr != null) {
+    db.prepare(
+      `UPDATE async_tasks SET status = ?, progress = ?, message = ?, result = ?, updated_at = ? WHERE id = ?`
+    ).run(status || 'processing', progress ?? 0, message || '', resultStr, now, taskId);
+  } else {
+    db.prepare(
+      `UPDATE async_tasks SET status = ?, progress = ?, message = ?, updated_at = ? WHERE id = ?`
+    ).run(status || 'processing', progress ?? 0, message || '', now, taskId);
+  }
+}
+
 function rowToTask(r) {
   return {
     id: r.id,
@@ -121,6 +135,7 @@ module.exports = {
   updateTaskStatus,
   updateTaskError,
   updateTaskResult,
+  updateTaskSnapshot,
   failOrphanedAsyncTasksOnStartup,
   cancelTask,
   ORPHAN_ASYNC_TASK_MSG,

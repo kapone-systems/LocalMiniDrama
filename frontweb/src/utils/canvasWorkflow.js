@@ -1,4 +1,4 @@
-import { parseDramaMetadata } from './canvasLayout'
+import { parseDramaMetadata } from './canvasLayout.js'
 
 export const DEFAULT_PIPELINE = ['image', 'video', 'audio']
 

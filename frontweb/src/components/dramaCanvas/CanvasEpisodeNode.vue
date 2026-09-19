@@ -1,9 +1,14 @@
 <template>
-  <div class="canvas-episode-node">
+  <div
+    class="canvas-episode-node"
+    :class="{ collapsed: data.collapsed || data.stub }"
+  >
     <Handle type="target" :position="Position.Left" />
+    <Handle type="source" :position="Position.Right" />
     <span class="badge">第 {{ data.episode?.episode_number ?? '?' }} 集</span>
     <span class="title">{{ data.episode?.title || '未命名集' }}</span>
     <span class="count">{{ (data.episode?.storyboards || []).length }} 镜</span>
+    <span v-if="data.collapsed || data.stub" class="hint">折叠 · 单击展开</span>
   </div>
 </template>
 
@@ -27,6 +32,10 @@ defineProps({
   color: #e9d5ff;
   font-size: 13px;
   white-space: nowrap;
+  cursor: pointer;
+}
+.canvas-episode-node.collapsed {
+  border-style: dashed;
 }
 .badge {
   font-weight: 700;
@@ -39,5 +48,9 @@ defineProps({
 .count {
   font-size: 11px;
   opacity: 0.75;
+}
+.hint {
+  font-size: 10px;
+  color: #c4b5fd;
 }
 </style>
