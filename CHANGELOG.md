@@ -18,6 +18,8 @@
 - **协议注册表**：图/视频新增可插拔协议族，覆盖 APIMart 任务中心、硅基流动、OpenRouter、Fal/Wavespeed、Replicate、PiAPI、Kie、Novita、海螺 02/2.3、OpenAI 官方 Sora JSON、即梦官方、PixVerse、SkyReels、Runway、Luma、Pika、Ideogram、Midjourney Imagine、智谱清影、腾讯混元、百度千帆、讯飞星火、RunningHub。显式 `api_protocol` 不会再被 grok-imagine 误判成 grok2api。
 - **AI 配置页改版**：类型 chips 过滤、预设画廊（官方 / 中转 / 自建）、导入向导（跳过 stt、统一换 Key、冲突策略）、协议按服务类型分组。
 - **中转站预设**：新增 `各大平台中转站配置/apimart.json`；画廊内置 302 / 飞儿 / 云雾 / n1n / GeekNow / 向量。
+- **按视频模型优化提示词**：图文生视频提交前可按当前模型 Skill 改写（一期 MiniMax H3 官方结构 + 通用兜底）。分镜真源 `video_prompt` 不被覆盖；可在提示词管理编辑 Skill、生成设置关闭该行为、分镜上预览后生成。
+- **视频提示词 Skill 二期**：海螺 / 可灵 I2V / Wan / Seedance 经典填厚官方正文；可灵 Omni 与 Seedance 全能在提交前保真 `@图片N`；可查看并复制本次提交词；改写结果可缓存到分镜。
 
 ### 优化
 

@@ -1385,6 +1385,9 @@ function rebuildVideoPromptForStoryboard(db, log, storyboardId) {
   const videoPrompt = generateVideoPrompt(sbForPrompt, finalStyle, videoRatio);
   const now = new Date().toISOString();
   db.prepare('UPDATE storyboards SET video_prompt = ?, updated_at = ? WHERE id = ?').run(videoPrompt, now, sbId);
+  try {
+    require('./videoPromptAdaptService').clearAdaptedCache(db, sbId);
+  } catch (_) {}
 
   if (log?.info) {
     log.info('[分镜] 已按最新规则重建 video_prompt', {

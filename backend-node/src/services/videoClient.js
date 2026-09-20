@@ -4921,6 +4921,7 @@ module.exports = {
   isSeedance2FamilyModel,
   normalizeVolcengineDuration,
   isMinimaxH3Model,
+  resolveVideoProtocol,
   getMinimaxApiRoot,
   buildMinimaxH3PollUrl,
   extractMinimaxH3VideoUrl,

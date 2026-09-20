@@ -20,3 +20,12 @@ export const generationSettingsAPI = {
     return request.put('/settings/generation', data)
   },
 }
+
+export const videoPromptSkillsAPI = {
+  list() {
+    return request.get('/settings/video-prompt-skills')
+  },
+  resolve(params) {
+    return request.get('/settings/video-prompt-skills/resolve', { params: params || {} })
+  },
+}

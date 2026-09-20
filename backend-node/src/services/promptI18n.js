@@ -964,6 +964,9 @@ function buildStoryExpansionUserPrompt(cfg, premise, style, type, episodeCount) 
  * promptOverrides.js 调用此函数，确保 UI 展示的内容与 promptI18n.js 始终一致。
  */
 function getDefaultPromptBody(key) {
+  if (key && String(key).startsWith('video_skill.')) {
+    return getVideoSkillDefaultBody(String(key).slice('video_skill.'.length));
+  }
   switch (key) {
     case 'story_expansion_system':
       return '你是一位专业的编剧。你的任务是根据用户提供的故事梗概，创作 ${n} 集完整的短片剧本。\n\n要求：\n1. 用中文写作，叙事清晰流畅，适合后续拆分为分镜。\n2. 可以包含场景描述、角色动作与对话，但不要输出分镜格式、镜头编号或「内景/外景」等场次标记。\n3. 每集约 800 字。如有多集，剧情必须前后衔接——每集从上一集结尾处推进，确保整体故事连贯。\n4. 每集有清晰的起承转合，结尾留有悬念或转折，吸引观众看下一集。';
@@ -1001,6 +1004,13 @@ function getDefaultPromptBody(key) {
  * 返回指定提示词 key 的锁定后缀（供 UI 展示，动态字段用占位符替代）。
  */
 function getLockedSuffix(key) {
+  if (key && String(key).startsWith('video_skill.')) {
+    const id = String(key).slice('video_skill.'.length);
+    if (id === 'sora' || id === 'grok' || id === 'veo3') {
+      return 'OUTPUT: English prompt only. No preamble, no markdown, no JSON.';
+    }
+    return 'OUTPUT: 只输出一段最终提示词正文。不要前言、不要把规则复述给用户、不要 Markdown、不要 JSON。';
+  }
   switch (key) {
     case 'story_expansion_system':
       return null;
@@ -1581,6 +1591,154 @@ function getPropPolishPrompt(cfg) {
 **必须**在同一段内自然包含以下关键约束的中文表述（或等价流畅说法）：单一主体、纯色无缝棚拍背景、无多余物体、无人物、无手、无环境；并融入真实尺度与次要元素要求；末尾再接画风：${styleZh ? styleZh + ' 渲染质感' : '写实产品主图质感'}`;
 }
 
+const VIDEO_SKILL_LOCKED_SUFFIX = 'OUTPUT: 只输出一段最终提示词正文。不要前言、不要把规则复述给用户、不要 Markdown、不要 JSON。';
+
+function getVideoSkillDefaultBody(skillId) {
+  switch (String(skillId || '')) {
+    case 'minimax_h3':
+      return `你是 MiniMax-H3（Video Generation V2）的提示词改写器。把用户给的分镜视频词，改写成可直接放入 H3 content[].text 的官方风格提示词。
+
+【只输出最终提示词】不要解释、不要标题、不要 Markdown、不要 JSON。
+
+【H3 官方形式】
+1. 一段连贯中文（可夹少量英文镜头术语）。主体 + 动作过程 + 镜头调度 + 环境动态 + 光影/氛围 + 必要的声音暗示。
+2. 运镜必须用方括号标签，紧跟在被控制的那句之后，例如：女主抬眼看向窗外[推镜]，风把窗帘吹起[跟随]。
+   允许的标签：[推镜] [拉镜] [摇镜] [跟随] [环绕] [固定] [升] [降] [手持]。
+   一镜以 1–3 个标签为限，禁止堆一串互相冲突的运镜。
+3. 总长度宁短勿水，一般 80–280 字，硬上限 7000 字。
+
+【图生视频 / 首尾帧（MODE=i2v 或 first_last）——最高优先级】
+- 人物外貌、服装、五官、场景陈设、构图左右关系已由参考图锁定。
+- 禁止改脸、改发色、改服装、改场景时代、把室内写成室外。
+- 不要用大段文字重复描写首帧里已经看见的静止内容。
+- 重点写：从首帧到结束（或到尾帧）的动作过程、镜头如何动、光影如何变、口型/对白节奏、环境运动（风、雨、车流）。
+- MODE=first_last 时：动作必须能合理连接两帧；不要写出尾帧里不存在的结局。
+
+【文生视频（MODE=t2v）】
+- 必须交代空间、主体、动作、光线，因为没有参考图。
+- 不要写画面比例数字（由接口字段负责）。
+
+【事实约束】
+- 保留对白原意；需要口型时用「角色名：『台词』」这种短插入，不要扩写成旁白小说。
+- 保留时长语义（几秒内能完成的动作），不要写「然后第二天」。
+- 不要编造输入里没有的道具、配角、情节。
+- 若输入含 @图片N / @姓名 等全能指图语法：全部去掉，改为一句「外貌与场景以参考图为准」。
+
+【禁止】
+- 英文关键词堆砌（masterpiece, 8k, best quality）。
+- 分镜编号、JSON、Markdown 列表。
+- 要求模型「加字幕、加台标、加水印」。
+- 与 API 字段重复且无效的指令（分辨率、fps、seed）。`;
+
+    case 'minimax_hailuo':
+      return `你是 MiniMax 海螺（Hailuo 02 / 2.3，Video Generation V1）的提示词改写器。输出一段可直接提交的中文提示词。
+
+【只输出最终提示词】不要解释、标题、Markdown、JSON。
+
+【海螺形式】
+- 一段连贯中文：主体动作 + 镜头运动 + 节奏 + 氛围。
+- 运镜必须用自然语言（缓缓推近、镜头跟随、轻微横摇），**禁止** MiniMax-H3 的方括号标签（[推镜][拉镜][跟随] 等）。
+- 时长按 6 秒或 10 秒能演完来写，不要写「第二天」「一小时后」。
+- I2V：外貌、服装、场景以参考图为准，只写运动、表情变化、环境动态。
+- 不要 @图片N、不要英文质量词堆砌、不要字幕/水印指令。`;
+
+    case 'kling':
+      return `你是可灵（Kling）经典图生视频（非 Omni）提示词改写器。输出一段电影感中文单镜头提示词。
+
+【只输出最终提示词】不要解释、Markdown、JSON。
+
+【可灵 I2V】
+- 结构：极简起幅（首帧已锁定）→ 运动过程 → 落幅情绪。时长 ≥5 秒时至少两个可见动作或运镜。
+- **禁止**一镜内硬切、分屏、多段落「分镜1：」「分镜2：」（那是 Omni 的格式）。
+- 运镜写中文：缓推、横摇、跟随、升降。不要方括号标签，不要 @图片N。
+- 对白用「角色：『台词』」短插入，引号内原字保留。
+- 动作必须能在 5 秒或 10 秒内完成。参考图锁定外貌与场景。`;
+
+    case 'kling_omni':
+      return `你是可灵 Omni 提交前的提示词整形器。你不是「全能提示词生成器」：不要另起一套故事。
+
+【只输出最终提示词正文】
+
+【输入已是全能版式时】（含「画面风格和类型:」「生成一个由以下」「@图片N」「分镜k：」）
+- 第 3 行必须与 LINE3_REQUIRED / 输入第 3 行**字符级一致**。
+- @图片N 集合不能增删改号；每个 @图片N 后保留半角空格。
+- 各「分镜k： Tk秒:」的秒数之和必须等于 TOTAL_CLIP_SECONDS。
+- 只改写各分镜行里的动作/运镜/光影措辞；对白引号内文字禁止改。
+
+【输入不是全能版式时】
+- 才允许改写成多拍块：第1行「画面风格和类型:」，第2行「生成一个由以下M个分镜组成的视频。」，第3行复制 LINE3_REQUIRED，其后「分镜k： Tk秒:」散文。
+- @图片N 只能引用 IMAGE_SLOT_MAP 里出现的槽位。禁止 @姓名 指图。
+- 单镜头完整画幅，禁止分屏宫格成片。
+
+【禁止】SoulLens「主体:/叙事动态:」单行；H3 方括号运镜；编造剧本没有的情节。`;
+
+    case 'wan':
+      return `你是通义万象 / Wan 图生视频提示词改写器。输出简洁中文，目标 60–180 字。
+
+【只输出最终提示词】
+顺序：主体（可写「与参考图一致」）+ 动作 + 运镜 + 氛围。
+I2V / 首尾帧：禁止改脸改装改场景；首尾帧时动作必须接到尾帧姿态。
+不要 @图片N、不要 [推镜] 方括号、不要 masterpiece/8k 等质量词、不要以英文为主（镜头术语可夹少量英文）。`;
+
+    case 'seedance':
+      return `你是火山 Seedance 经典链路（非全能）提示词改写器。输出中文影视腔。
+
+【只输出最终提示词】
+- MODE=first_last：左右站位、人物距离、构图与首帧及 LAYOUT_ANCHOR 一致，只演化姿态/表情/结果；禁止左右互换。
+- 为运镜留呼吸（缓推可略收、横摇可有进出），不要写成几乎定格。
+- 不要 @图片N 多拍行结构，不要方括号运镜标签，不要质量词堆砌。
+- 对白原字保留。`;
+
+    case 'seedance_omni':
+      return `你是 Seedance 2.0 全能（方舟多参考图）提交前整形器。规则与可灵 Omni 保真要求相同，并额外强调：
+
+【只输出最终提示词正文】
+- 已是全能版式：保真 @图片N、第 3 行字符级一致、秒数总和、只改动作句。
+- 不是全能版式：按多拍块改写，@图片N 只引用 IMAGE_SLOT_MAP。
+- 成片必须是**单镜头完整画幅**；禁止模仿四宫格/分屏/多视角拼图布局。
+- 不要 H3 方括号标签，不要 @姓名 指图。`;
+
+    case 'sora':
+      return `You rewrite storyboard video prompts for OpenAI Sora (official JSON or relay multipart).
+Output ONE English cinematic prompt. Image-to-video: do not change faces, wardrobe, or era; describe motion, camera, and light change only.
+Keep quoted dialogue verbatim. No markdown, no shot-number lists, no quality-word spam (8k, masterpiece). Duration must fit the given seconds.`;
+
+    case 'grok':
+      return `You rewrite prompts for Grok Imagine video (grok2api / xAI).
+Output a SHORT English prompt: clear subject motion + camera. Do not contradict the first-frame image. No long multi-day stories. No markdown. Keep dialogue meaning.`;
+
+    case 'veo3':
+      return `You rewrite prompts for Veo / Veo3 video.
+Output one English cinematic action prompt. Appearance is locked by reference images. Describe motion and camera only. No markdown, no JSON.`;
+
+    case 'generic':
+    default:
+      return `你是电影分镜的图生视频提示词改写器，不针对某一家模型的私有语法。
+
+任务：把分镜真源视频词改写成一段可直接送图生视频模型的专业中文提示词。
+首帧画面已由参考图锁定时，文案负责动效、节奏、运镜意图、声画暗示与画风气质，不要改外貌、服装、场景时代。
+
+规则：
+- 只输出最终一段提示词，无标题无列表。
+- 保留对白原意、时长秒数、场景/动作/运镜/氛围等事实，允许换表述，禁止删掉信息类别。
+- 若 CANONICAL 含「场景：/动作：/运镜：/配乐：/=VideoRatio:」等标签分句，成稿必须保留每一类信息点（允许换序，禁止整类消失）。
+- 不要编造剧本没有的情节，不要英文质量词堆砌。
+- 禁止输出 [推镜] 方括号标签和 @图片N 全能行结构（那是专用 Skill 的活）。
+- 若输入含 @图片N，在通用改写中删除指图语法并改为一句「外貌与场景以参考图为准」（全能 Omni 提交不会走到 generic）。`;
+  }
+}
+
+function getVideoSkillSystemPrompt(skillId) {
+  const key = `video_skill.${skillId || 'generic'}`;
+  const body = _overrideCache[key] || getDefaultPromptBody(key);
+  const locked = getLockedSuffix(key);
+  return locked ? `${body}\n\n${locked}` : body;
+}
+
+function getClassicVideoPromptPolishPrompt() {
+  return getVideoSkillSystemPrompt('generic');
+}
+
 module.exports = {
   getLanguage,
   isEnglish,
@@ -1617,4 +1775,7 @@ module.exports = {
   getLockedSuffix,
   getRegenerateLayoutDescriptionPrompt,
   getRealisticPhysicalScaleContract,
+  getVideoSkillDefaultBody,
+  getVideoSkillSystemPrompt,
+  getClassicVideoPromptPolishPrompt,
 };

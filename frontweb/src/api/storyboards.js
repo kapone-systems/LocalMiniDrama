@@ -67,6 +67,69 @@ function postUniversalSegmentNdjsonStream(url, body, onDelta, signal) {
   })
 }
 
+/**
+ * 通用 NDJSON：{type:'delta',text} / {type:'done',...} / {type:'error',message}
+ * @returns {Promise<object>} done 行对象
+ */
+function postNdjsonStream(url, body, onDelta, signal) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
+    body: JSON.stringify(body || {}),
+    signal,
+  }).then(async (res) => {
+    if (!res.ok) {
+      let msg = `请求失败 (${res.status})`
+      try {
+        const j = await res.json()
+        if (j?.error?.message) msg = j.error.message
+      } catch (_) {
+        try {
+          const t = await res.text()
+          if (t) msg = t.slice(0, 200)
+        } catch (_) {}
+      }
+      throw new Error(msg)
+    }
+    const reader = res.body && res.body.getReader()
+    if (!reader) throw new Error('浏览器不支持流式读取')
+    const dec = new TextDecoder()
+    let buf = ''
+    let doneObj = {}
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += dec.decode(value, { stream: true })
+      let nl
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim()
+        buf = buf.slice(nl + 1)
+        if (!line) continue
+        let obj
+        try {
+          obj = JSON.parse(line)
+        } catch (_) {
+          continue
+        }
+        if (obj.type === 'delta' && obj.text && typeof onDelta === 'function') onDelta(String(obj.text))
+        if (obj.type === 'error') throw new Error(obj.message || '请求失败')
+        if (obj.type === 'done') doneObj = obj
+      }
+    }
+    const tail = buf.trim()
+    if (tail) {
+      try {
+        const obj = JSON.parse(tail)
+        if (obj.type === 'error') throw new Error(obj.message || '请求失败')
+        if (obj.type === 'done') doneObj = obj
+      } catch (e) {
+        if (e instanceof Error && e.message && !e.message.includes('JSON')) throw e
+      }
+    }
+    return doneObj
+  })
+}
+
 export const storyboardsAPI = {
   get(id) {
     return request.get(`/storyboards/${id}`)
@@ -138,6 +201,21 @@ export const storyboardsAPI = {
   /** 按后端最新规则重建单镜 video_prompt（含音色锚点，不调用 AI） */
   rebuildVideoPrompt(id) {
     return request.post(`/storyboards/${id}/rebuild-video-prompt`, {})
+  },
+  /**
+   * 按当前视频模型 Skill 流式改写。不写回 video_prompt。
+   * done: { adapted_prompt, skill_id, skill_label }
+   */
+  adaptVideoPromptStream(id, body, onDelta, signal) {
+    return postNdjsonStream(
+      `/api/v1/storyboards/${id}/video-prompt-adapt-stream`,
+      body,
+      onDelta,
+      signal,
+    )
+  },
+  adaptVideoPromptCache(id, body) {
+    return request.post(`/storyboards/${id}/video-prompt-adapt-cache`, body || {})
   },
   /** 按对白/旁白拆成多条分镜（每条仅一人说话或仅画外旁白） */
   splitByAudio(id) {

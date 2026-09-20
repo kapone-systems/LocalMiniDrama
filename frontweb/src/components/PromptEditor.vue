@@ -6,23 +6,26 @@
         <!-- 左侧菜单 -->
         <div class="left-sidebar">
           <div class="sidebar-menu">
-            <div
-              v-for="p in prompts"
-              :key="p.key"
-              :class="['menu-item', { active: currentKey === p.key }]"
-              @click="selectPrompt(p.key)"
-            >
-              <div class="menu-item-content">
-                <span class="menu-label">{{ p.label }}</span>
-                <el-tag
-                  v-if="p.is_customized"
-                  type="warning"
-                  size="small"
-                  class="menu-tag"
-                >已自定义</el-tag>
-                <el-tag v-else type="info" size="small" class="menu-tag">默认</el-tag>
+            <div v-for="g in groupedPrompts" :key="g.id" class="menu-group">
+              <div class="menu-group-title">{{ g.label }}</div>
+              <div
+                v-for="p in g.items"
+                :key="p.key"
+                :class="['menu-item', { active: currentKey === p.key }]"
+                @click="selectPrompt(p.key)"
+              >
+                <div class="menu-item-content">
+                  <span class="menu-label">{{ p.label }}</span>
+                  <el-tag
+                    v-if="p.is_customized"
+                    type="warning"
+                    size="small"
+                    class="menu-tag"
+                  >已自定义</el-tag>
+                  <el-tag v-else type="info" size="small" class="menu-tag">默认</el-tag>
+                </div>
+                <div v-if="isDirty[p.key]" class="dirty-indicator" />
               </div>
-              <div v-if="isDirty[p.key]" class="dirty-indicator" />
             </div>
           </div>
         </div>
@@ -30,8 +33,7 @@
         <!-- 右侧编辑区 -->
         <div class="right-content">
           <p class="page-desc">
-            可自定义 AI 生成各阶段使用的提示词（System Prompt）。蓝色锁定区为 JSON
-            格式要求，不可修改以确保输出格式正确。
+            可自定义 AI 生成各阶段使用的提示词（System Prompt）。「视频模型 Skill」在图文生视频提交前，按当前视频模型改写提示词；蓝色锁定区不可修改。
           </p>
 
           <div v-if="currentPrompt" class="prompt-card">
@@ -67,7 +69,7 @@
             <div v-if="currentPrompt.locked_suffix" class="prompt-locked-section">
               <div class="section-label section-label--locked">
                 <el-icon class="section-icon"><Lock /></el-icon>
-                <span>JSON 格式要求（锁定，不可修改）</span>
+                <span>{{ currentPrompt.group === 'video_skill' ? '输出格式（锁定，不可修改）' : 'JSON 格式要求（锁定，不可修改）' }}</span>
               </div>
               <div class="locked-content">{{ currentPrompt.locked_suffix }}</div>
             </div>
@@ -114,6 +116,22 @@ const currentKey = ref(null)
 
 const currentPrompt = computed(() => {
   return prompts.value.find((p) => p.key === currentKey.value)
+})
+
+const GROUP_LABELS = {
+  core: '剧本与分镜',
+  video_skill: '视频模型 Skill',
+}
+
+const groupedPrompts = computed(() => {
+  const order = ['core', 'video_skill']
+  return order
+    .map((id) => ({
+      id,
+      label: GROUP_LABELS[id] || id,
+      items: prompts.value.filter((p) => (p.group || 'core') === id),
+    }))
+    .filter((g) => g.items.length)
 })
 
 async function load() {
@@ -227,6 +245,14 @@ onMounted(() => load())
   flex: 1;
   overflow-y: auto;
   padding: 8px;
+}
+
+.menu-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #71717a);
+  padding: 10px 12px 6px;
+  letter-spacing: 0.04em;
 }
 
 .menu-item {

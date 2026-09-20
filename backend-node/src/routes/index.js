@@ -288,6 +288,8 @@ function setupRouter(cfg, db, log) {
   r.post('/storyboards/:id/polish-prompt', storyboards.polishPrompt);
   r.post('/storyboards/:id/universal-segment-polish-stream', storyboards.polishUniversalSegmentStream);
   r.post('/storyboards/:id/classic-video-prompt-polish-stream', storyboards.polishClassicVideoPromptStream);
+  r.post('/storyboards/:id/video-prompt-adapt-stream', storyboards.adaptVideoPromptStream);
+  r.post('/storyboards/:id/video-prompt-adapt-cache', storyboards.adaptVideoPromptCache);
   r.post('/storyboards/:id/universal-segment-prompt-stream', storyboards.generateUniversalSegmentStream);
   r.post('/storyboards/:id/universal-segment-prompt', storyboards.generateUniversalSegmentPrompt);
   r.post('/storyboards/batch-infer-params', storyboards.batchInferParams);
@@ -305,6 +307,8 @@ function setupRouter(cfg, db, log) {
   r.put('/settings/language', settings.updateLanguage);
   r.get('/settings/generation', settings.getGenerationSettings);
   r.put('/settings/generation', settings.updateGenerationSettings);
+  r.get('/settings/video-prompt-skills', settings.listVideoPromptSkills);
+  r.get('/settings/video-prompt-skills/resolve', settings.resolveVideoPromptSkill);
 
   // ---------- prompt overrides ----------
   r.get('/settings/prompts', promptOverrides.list);

@@ -173,6 +173,10 @@ function ensureAllColumns(database) {
     { name: 'narration_audio_local_path', type: 'TEXT' },         // 解说旁白 TTS 本地路径
     { name: 'creation_mode',     type: 'TEXT DEFAULT \'classic\'' }, // classic | universal
     { name: 'universal_segment_text', type: 'TEXT' },              // 全能模式片段描述（@ 引用等）
+    { name: 'adapted_video_prompt', type: 'TEXT' },
+    { name: 'adapted_video_skill_id', type: 'TEXT' },
+    { name: 'adapted_video_source_hash', type: 'TEXT' },
+    { name: 'adapted_video_prompt_at', type: 'TEXT' },
     { name: 'first_frame_image_id', type: 'INTEGER' },
     { name: 'last_frame_image_id',  type: 'INTEGER' },
     { name: 'last_frame_image_url', type: 'TEXT' },
@@ -362,6 +366,9 @@ function ensureAllColumns(database) {
     { name: 'scene_id',             type: 'INTEGER' },
     { name: 'completed_at',         type: 'TEXT' },
     { name: 'error_msg',            type: 'TEXT' },
+    { name: 'prompt_skill_id',      type: 'TEXT' },
+    { name: 'prompt_adapted',       type: 'INTEGER DEFAULT 0' },
+    { name: 'adapt_requested',      type: 'INTEGER' },
     { name: 'created_at',           type: 'TEXT' },
     { name: 'updated_at',           type: 'TEXT' },
     { name: 'deleted_at',           type: 'TEXT' },

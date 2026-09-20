@@ -1020,9 +1020,57 @@ function routes(db, log) {
         nowIso,
         sbId
       );
+      try {
+        require('../services/videoPromptAdaptService').clearAdaptedCache(db, sbId);
+      } catch (_) {}
       log.info('[分镜] polishClassicVideoPromptStream 完成', { id: sbId, len: text.length });
       writeNd({ type: 'done', video_prompt: text });
       res.end();
+    },
+
+    adaptVideoPromptStream: async (req, res) => {
+      const sbId = Number(req.params.id);
+      res.status(200);
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      if (typeof res.flushHeaders === 'function') res.flushHeaders();
+      const writeNd = (obj) => {
+        res.write(`${JSON.stringify(obj)}\n`);
+      };
+      try {
+        const videoPromptAdaptService = require('../services/videoPromptAdaptService');
+        await videoPromptAdaptService.streamAdaptForStoryboard(db, log, sbId, req.body || {}, writeNd);
+      } catch (err) {
+        log.error('storyboards adaptVideoPromptStream', { error: err.message, id: sbId });
+        try {
+          writeNd({ type: 'error', message: err.message || 'stream failed' });
+        } catch (_) {}
+      }
+      res.end();
+    },
+
+    adaptVideoPromptCache: (req, res) => {
+      const sbId = Number(req.params.id);
+      const body = req.body || {};
+      try {
+        const videoPromptAdaptService = require('../services/videoPromptAdaptService');
+        const sb = db.prepare('SELECT id, video_prompt, universal_segment_text FROM storyboards WHERE id = ? AND deleted_at IS NULL').get(sbId);
+        if (!sb) return response.notFound(res, '分镜不存在');
+        const source = body.source_prompt != null
+          ? String(body.source_prompt)
+          : (sb.universal_segment_text || sb.video_prompt || '');
+        const out = videoPromptAdaptService.saveAdaptedCacheForStoryboard(db, sbId, {
+          prompt: body.adapted_prompt || body.prompt,
+          skillId: body.skill_id || body.skillId,
+          sourcePrompt: source,
+        });
+        if (!out.ok) return response.badRequest(res, out.error || '缓存失败');
+        response.success(res, out);
+      } catch (err) {
+        log.error('storyboards adaptVideoPromptCache', { error: err.message, id: sbId });
+        response.internalError(res, err.message);
+      }
     },
 
     upscale: async (req, res) => {

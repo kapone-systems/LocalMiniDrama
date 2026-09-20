@@ -29,14 +29,22 @@ function getGenerationSettings(db) {
     const concurrency = settingsService.getGlobalSetting(db, 'pipeline_concurrency', 3);
     const video_concurrency = settingsService.getGlobalSetting(db, 'pipeline_video_concurrency', 3);
     const video_generation_timeout_minutes = resolveVideoGenerationTimeoutMinutes(loadConfig());
-    response.success(res, { concurrency, video_concurrency, video_generation_timeout_minutes });
+    const adapt_video_prompt = settingsService.getGlobalSetting(db, 'adapt_video_prompt', true) !== false;
+    const adapt_video_prompt_cache = settingsService.getGlobalSetting(db, 'adapt_video_prompt_cache', true) !== false;
+    response.success(res, {
+      concurrency,
+      video_concurrency,
+      video_generation_timeout_minutes,
+      adapt_video_prompt,
+      adapt_video_prompt_cache,
+    });
   };
 }
 
 /** PUT /settings/generation — 更新生成相关全局设置 */
 function updateGenerationSettings(db) {
   return (req, res) => {
-    const { concurrency, video_concurrency } = req.body || {};
+    const { concurrency, video_concurrency, adapt_video_prompt, adapt_video_prompt_cache } = req.body || {};
     if (concurrency !== undefined) {
       const n = Number(concurrency);
       if (!Number.isInteger(n) || n < 1 || n > 20) {
@@ -51,14 +59,59 @@ function updateGenerationSettings(db) {
       }
       settingsService.setGlobalSetting(db, 'pipeline_video_concurrency', n);
     }
+    if (adapt_video_prompt !== undefined) {
+      settingsService.setGlobalSetting(db, 'adapt_video_prompt', adapt_video_prompt !== false && adapt_video_prompt !== 0);
+    }
+    if (adapt_video_prompt_cache !== undefined) {
+      settingsService.setGlobalSetting(db, 'adapt_video_prompt_cache', adapt_video_prompt_cache !== false && adapt_video_prompt_cache !== 0);
+    }
     const saved = settingsService.getGlobalSetting(db, 'pipeline_concurrency', 3);
     const saved_video = settingsService.getGlobalSetting(db, 'pipeline_video_concurrency', 3);
     const video_generation_timeout_minutes = resolveVideoGenerationTimeoutMinutes(loadConfig());
+    const saved_adapt = settingsService.getGlobalSetting(db, 'adapt_video_prompt', true) !== false;
+    const saved_cache = settingsService.getGlobalSetting(db, 'adapt_video_prompt_cache', true) !== false;
     response.success(res, {
       concurrency: saved,
       video_concurrency: saved_video,
       video_generation_timeout_minutes,
+      adapt_video_prompt: saved_adapt,
+      adapt_video_prompt_cache: saved_cache,
     });
+  };
+}
+
+function listVideoPromptSkills(db) {
+  return (req, res) => {
+    try {
+      const videoPromptSkills = require('../services/videoPromptSkills');
+      const promptOverridesService = require('../services/promptOverridesService');
+      const overrides = promptOverridesService.listOverrides(db);
+      const overrideMap = {};
+      for (const o of overrides) overrideMap[o.key] = true;
+      const skills = videoPromptSkills.listSkills().map((s) => ({
+        ...s,
+        is_customized: !!overrideMap[s.override_key],
+      }));
+      const adapt_enabled = settingsService.getGlobalSetting(db, 'adapt_video_prompt', true) !== false;
+      response.success(res, { skills, adapt_enabled });
+    } catch (err) {
+      response.internalError(res, err.message);
+    }
+  };
+}
+
+function resolveVideoPromptSkillRoute(db) {
+  return (req, res) => {
+    try {
+      const videoPromptAdaptService = require('../services/videoPromptAdaptService');
+      const summary = videoPromptAdaptService.resolveSkillSummary(db, {
+        storyboardId: req.query.storyboard_id,
+        model: req.query.model,
+      });
+      response.success(res, summary);
+    } catch (err) {
+      response.internalError(res, err.message);
+    }
   };
 }
 
@@ -68,5 +121,7 @@ module.exports = function settingsRoutes(db, cfg, log) {
     updateLanguage: updateLanguage(cfg, log),
     getGenerationSettings: getGenerationSettings(db),
     updateGenerationSettings: updateGenerationSettings(db),
+    listVideoPromptSkills: listVideoPromptSkills(db),
+    resolveVideoPromptSkill: resolveVideoPromptSkillRoute(db),
   };
 };

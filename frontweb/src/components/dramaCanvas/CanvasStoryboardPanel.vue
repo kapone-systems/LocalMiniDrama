@@ -121,6 +121,7 @@
             resize="vertical" class="nowheel"
             placeholder="生视频提示词"
           />
+          <el-button class="adapt-link" link size="small" type="warning" @click.stop="openAdapt">按当前模型优化</el-button>
         </el-form-item>
       </template>
       <template v-else>
@@ -161,6 +162,7 @@
             resize="vertical" class="nowheel"
             placeholder="视频提示词"
           />
+          <el-button class="adapt-link" link size="small" type="warning" @click.stop="openAdapt">按当前模型优化</el-button>
         </el-form-item>
       </template>
     </el-form>
@@ -189,6 +191,14 @@
       <el-button size="small" plain :disabled="!canRetry || !!busyStep" @click.stop="retryCurrent">重试本步</el-button>
       <el-button size="small" type="danger" plain @click.stop="deleteStoryboard">删除</el-button>
     </div>
+
+    <VideoPromptAdaptDialog
+      v-model="showAdapt"
+      :storyboard="storyboard"
+      :draft-prompt="form.video_prompt || form.universal_segment_text"
+      @generate-adapted="onAdaptGenerate"
+      @generate-original="onGenerateOriginalVideo"
+    />
   </div>
 </template>
 
@@ -206,6 +216,8 @@ import {
   parseStoryboardSceneId,
 } from '@/utils/canvasEntityIds'
 import { runImageStep, runVideoStep, runAudioStep } from '@/composables/useCanvasWorkflowRunner'
+import VideoPromptAdaptDialog from '@/components/VideoPromptAdaptDialog.vue'
+import { setVideoPromptAdaptCache } from '@/composables/useVideoPromptAdapt'
 import { findStoryboardInDrama, getDramaGenerationOptions } from '@/utils/canvasWorkflow'
 import { collectStoryboardReferenceImages } from '@/utils/storyboardReferences'
 
@@ -222,6 +234,7 @@ const busyStep = ref('')
 const lastStep = ref('')
 const uniBusy = ref('')
 const uniAbort = ref(null)
+const showAdapt = ref(false)
 const selectedRefKeys = ref([])
 const characterIds = ref([])
 const sceneId = ref(null)
@@ -378,6 +391,28 @@ async function deleteStoryboard() {
   }
 }
 
+function openAdapt() {
+  showAdapt.value = true
+}
+
+function onAdaptGenerate(payload) {
+  showAdapt.value = false
+  if (payload?.prompt && props.storyboard?.id) {
+    setVideoPromptAdaptCache(
+      props.storyboard.id,
+      payload.skillId || payload.adapted_by_skill_id,
+      payload.prompt,
+      form.video_prompt || form.universal_segment_text,
+    )
+  }
+  runStep('video')
+}
+
+function onGenerateOriginalVideo() {
+  showAdapt.value = false
+  runStep('video', { adaptPrompt: false })
+}
+
 async function polishPrompt() {
   if (!props.storyboard?.id) return
   busyStep.value = 'polish'
@@ -395,7 +430,7 @@ async function polishPrompt() {
   }
 }
 
-async function runStep(step) {
+async function runStep(step, extra = {}) {
   const drama = ctx?.drama?.value
   const sbId = props.storyboard?.id
   if (!drama || !sbId) return
@@ -426,7 +461,7 @@ async function runStep(step) {
         referenceImages: refCandidates.value.length ? selected : undefined,
       })
     }
-    else if (step === 'video') await runVideoStep(drama, sb, genOpts)
+    else if (step === 'video') await runVideoStep(drama, sb, { ...genOpts, ...extra })
     else if (step === 'audio') {
       const res = await runAudioStep(sb)
       if (res?.skipped) {
@@ -521,6 +556,10 @@ function cancelUniStream() {
 }
 .compact-form :deep(.el-form-item) {
   margin-bottom: 6px;
+}
+.adapt-link {
+  margin-top: 2px;
+  padding: 0;
 }
 .compact-form :deep(.el-form-item__label) {
   color: #71717a;

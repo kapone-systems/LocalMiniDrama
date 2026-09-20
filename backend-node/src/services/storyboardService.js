@@ -112,6 +112,11 @@ function updateStoryboard(db, log, id, req) {
     params.push(new Date().toISOString(), id);
     db.prepare('UPDATE storyboards SET ' + updates.join(', ') + ', updated_at = ? WHERE id = ?').run(...params);
   }
+  if (req.video_prompt !== undefined || req.universal_segment_text !== undefined) {
+    try {
+      require('./videoPromptAdaptService').clearAdaptedCache(db, id);
+    } catch (_) {}
+  }
   // 角色勾选变更：只同步 storyboard_characters，不删除 frame_prompts。
   // 用户手动保存的首/尾帧提示词应保留；图生时 framePromptSanitize 会按当前勾选剔除未出场角色名。
   if (parsedDramaCharIdsForSync !== null) {

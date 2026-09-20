@@ -69,6 +69,8 @@ function rowToItem(r) {
     status: r.status,
     task_id: r.task_id,
     error_msg: r.error_msg,
+    prompt_skill_id: r.prompt_skill_id || null,
+    prompt_adapted: !!r.prompt_adapted,
     created_at: r.created_at,
     updated_at: r.updated_at,
     completed_at: r.completed_at,
@@ -499,6 +501,42 @@ async function processVideoGeneration(db, log, videoGenId) {
       } catch (_) {}
     }
     const rowForAspect = { ...row, aspect_ratio: aspectForVideo || row.aspect_ratio };
+    const alreadyAdapted = Number(row.adapt_requested) === 0 && Number(row.prompt_adapted) === 1;
+    if (!alreadyAdapted) {
+      try {
+        const videoPromptAdaptService = require('./videoPromptAdaptService');
+        const adaptResult = await videoPromptAdaptService.maybeAdaptVideoGenerationPrompt(db, log, {
+          row: { ...row, aspect_ratio: rowForAspect.aspect_ratio, reference_image_urls: row.reference_image_urls },
+          config,
+          adaptRequested: row.adapt_requested,
+        });
+        if (adaptResult.adapted && adaptResult.prompt) {
+          const nowAdapt = new Date().toISOString();
+          try {
+            db.prepare(
+              'UPDATE video_generations SET prompt = ?, prompt_skill_id = ?, prompt_adapted = 1, updated_at = ? WHERE id = ?'
+            ).run(adaptResult.prompt, adaptResult.skillId || null, nowAdapt, videoGenId);
+          } catch (colErr) {
+            if (!(colErr.message || '').includes('prompt_skill_id') && !(colErr.message || '').includes('prompt_adapted')) {
+              throw colErr;
+            }
+            db.prepare('UPDATE video_generations SET prompt = ?, updated_at = ? WHERE id = ?').run(
+              adaptResult.prompt,
+              nowAdapt,
+              videoGenId
+            );
+          }
+          row.prompt = adaptResult.prompt;
+          row.prompt_skill_id = adaptResult.skillId || null;
+          row.prompt_adapted = 1;
+        }
+      } catch (adaptErr) {
+        log.warn('[VideoPromptSkill] adapt failed, using original', {
+          id: videoGenId,
+          error: adaptErr.message,
+        });
+      }
+    }
     const hasOmniRefs = !!(reference_urls && reference_urls.length > 0);
     if (row.task_id && hasOmniRefs) {
       taskService.updateTaskStatus(
@@ -608,10 +646,36 @@ function createAndStart(db, log, body) {
     body.reference_image_urls && Array.isArray(body.reference_image_urls)
       ? JSON.stringify(body.reference_image_urls.slice(0, 10))
       : null;
-  db.prepare(
-    `INSERT INTO video_generations (drama_id, storyboard_id, provider, prompt, model, duration, aspect_ratio, resolution, seed, camera_fixed, watermark, image_url, first_frame_url, last_frame_url, reference_image_urls, status, task_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?)`
-  ).run(dramaId, storyboardId, provider, prompt, model, duration, aspectRatio, resolution, seed, cameraFixed, watermark, imageUrl, firstFrameUrl, lastFrameUrl, refImagesJson, task.id, now, now);
+  let adaptRequested = null;
+  let promptSkillId = null;
+  let promptAdapted = 0;
+  if (body.adapt_prompt === false || body.adapt_prompt === 0) {
+    adaptRequested = 0;
+    if (body.adapted_by_skill_id) {
+      promptSkillId = String(body.adapted_by_skill_id).slice(0, 64);
+      promptAdapted = 1;
+    }
+  } else if (body.adapt_prompt === true || body.adapt_prompt === 1) {
+    adaptRequested = 1;
+  }
+  try {
+    db.prepare(
+      `INSERT INTO video_generations (drama_id, storyboard_id, provider, prompt, model, duration, aspect_ratio, resolution, seed, camera_fixed, watermark, image_url, first_frame_url, last_frame_url, reference_image_urls, status, task_id, created_at, updated_at, prompt_skill_id, prompt_adapted, adapt_requested)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?, ?, ?, ?)`
+    ).run(
+      dramaId, storyboardId, provider, prompt, model, duration, aspectRatio, resolution, seed, cameraFixed, watermark,
+      imageUrl, firstFrameUrl, lastFrameUrl, refImagesJson, task.id, now, now,
+      promptSkillId, promptAdapted, adaptRequested
+    );
+  } catch (colErr) {
+    if (!(colErr.message || '').includes('prompt_skill_id') && !(colErr.message || '').includes('adapt_requested') && !(colErr.message || '').includes('prompt_adapted')) {
+      throw colErr;
+    }
+    db.prepare(
+      `INSERT INTO video_generations (drama_id, storyboard_id, provider, prompt, model, duration, aspect_ratio, resolution, seed, camera_fixed, watermark, image_url, first_frame_url, last_frame_url, reference_image_urls, status, task_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'processing', ?, ?, ?)`
+    ).run(dramaId, storyboardId, provider, prompt, model, duration, aspectRatio, resolution, seed, cameraFixed, watermark, imageUrl, firstFrameUrl, lastFrameUrl, refImagesJson, task.id, now, now);
+  }
   const videoGenId = db.prepare('SELECT last_insert_rowid() as id').get().id;
   setImmediate(() => {
     processVideoGeneration(db, log, videoGenId);

@@ -1544,10 +1544,25 @@
               <div class="sb-video-prompt-label">
                 <span class="sb-dot"></span>
                 <span>视频提示词</span>
+                <el-tag
+                  v-if="getSbVideo(sb.id)?.prompt_adapted"
+                  size="small"
+                  type="success"
+                  class="sb-adapt-tag"
+                  style="cursor:pointer"
+                  @click="onOpenSubmittedPrompt(sb)"
+                >{{ skillBadgeText(getSbVideo(sb.id)) }}</el-tag>
+                <el-button
+                  v-if="getSbVideo(sb.id)?.prompt"
+                  size="small"
+                  link
+                  @click="onOpenSubmittedPrompt(sb)"
+                >查看提交词</el-button>
               </div>
               <div class="sb-video-params-bar">
                 <span class="sb-video-prompt-text sb-video-prompt-text--preview">{{ sb.video_prompt || '暂无视频提示词（在「视频配置」保存后自动生成）' }}</span>
                 <el-button size="small" link type="primary" @click="onOpenSbPromptDialog(sb)">手工编辑</el-button>
+                <el-button size="small" link type="warning" @click="onOpenVideoPromptAdapt(sb)">按当前模型优化</el-button>
               </div>
             </div>
           </div>
@@ -2296,17 +2311,54 @@
         <!-- 视频区 -->
         <div class="sb-prompt-section-title" style="margin-top:12px;">🎬 视频提示词</div>
         <el-form-item label="">
-          <el-input
-            v-model="sbPromptVideoText"
-            type="textarea"
-            :rows="12"
-            placeholder="视频生成提示词（可选，留空则由系统自动生成）"
-          />
+          <div style="width:100%">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+              <span style="font-size:12px; color:#6b7280;">通用视频词（模型无关真源）</span>
+              <el-button size="small" type="warning" plain @click="onOpenVideoPromptAdapt(sbPromptTarget, sbPromptVideoText)">
+                按当前模型优化
+              </el-button>
+            </div>
+            <el-input
+              v-model="sbPromptVideoText"
+              type="textarea"
+              :rows="12"
+              placeholder="视频生成提示词（可选，留空则由系统自动生成）"
+            />
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showSbPromptDialog = false">取消</el-button>
         <el-button type="primary" :loading="sbPromptSaving" @click="onSaveSbPromptDialog">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <VideoPromptAdaptDialog
+      v-model="showVideoPromptAdapt"
+      :storyboard="videoPromptAdaptTarget"
+      :draft-prompt="videoPromptAdaptDraft"
+      @generate-adapted="onGenerateFromAdaptedPrompt"
+      @generate-original="onGenerateFromOriginalPrompt"
+    />
+
+    <el-dialog v-model="showSubmittedPrompt" title="本次提交给视频模型的提示词" width="720px" destroy-on-close>
+      <p class="vp-adapt-hint" style="margin-top:0">左侧为分镜真源（不会被模型 Skill 覆盖）；右侧为这一次实际发给视频 API 的文案。</p>
+      <div class="vp-adapt-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:12px;color:#909399;margin-bottom:6px">分镜真源</div>
+          <el-input :model-value="submittedPromptView.source" type="textarea" :rows="12" readonly />
+        </div>
+        <div>
+          <div style="font-size:12px;color:#909399;margin-bottom:6px">
+            提交词
+            <span v-if="submittedPromptView.skill"> · {{ submittedPromptView.skill }}</span>
+          </div>
+          <el-input :model-value="submittedPromptView.submitted" type="textarea" :rows="12" readonly />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showSubmittedPrompt = false">关闭</el-button>
+        <el-button type="primary" :disabled="!submittedPromptView.submitted" @click="copySubmittedPrompt">复制提交词</el-button>
       </template>
     </el-dialog>
 
@@ -2655,6 +2707,8 @@ import { exportStoryboardSheet } from '@/utils/exportStoryboardSheet'
 import StylePickerButton from '@/components/StylePickerButton.vue'
 import AIConfigContent from '@/components/AIConfigContent.vue'
 import UniversalSegmentOmniAtEditor from '@/components/UniversalSegmentOmniAtEditor.vue'
+import VideoPromptAdaptDialog from '@/components/VideoPromptAdaptDialog.vue'
+import { applyVideoPromptAdaptCache } from '@/composables/useVideoPromptAdapt'
 import {
   generationStyleOptions,
   getStylePromptEn,
@@ -3263,6 +3317,11 @@ const editingSbImagePromptText = ref('')
 /** 分镜提示词弹窗 */
 const showSbPromptDialog = ref(false)
 const sbPromptTarget = ref(null)
+const showVideoPromptAdapt = ref(false)
+const videoPromptAdaptTarget = ref(null)
+const videoPromptAdaptDraft = ref('')
+const showSubmittedPrompt = ref(false)
+const submittedPromptView = ref({ source: '', submitted: '', skill: '' })
 const sbPromptImageText = ref('')       // 原始 image_prompt
 const sbPromptPolishedText = ref('')    // AI 优化后 polished_prompt
 const sbPromptVideoText = ref('')       // video_prompt
@@ -6257,6 +6316,69 @@ async function onOpenSbPromptDialog(sb) {
   } catch (_) {}
 }
 
+function skillBadgeText(videoRow) {
+  const id = videoRow?.prompt_skill_id
+  if (id === 'minimax_h3') return '已按 MiniMax H3 优化'
+  if (id === 'minimax_hailuo') return '已按海螺优化'
+  if (id === 'kling') return '已按可灵优化'
+  if (id === 'wan') return '已按万象优化'
+  if (id === 'seedance') return '已按 Seedance 优化'
+  if (id === 'kling_omni') return '已按可灵 Omni 优化'
+  if (id === 'seedance_omni') return '已按 Seedance 全能优化'
+  if (id === 'sora') return '已按 Sora 优化'
+  if (id === 'grok') return '已按 Grok 优化'
+  if (id === 'veo3') return '已按 Veo 优化'
+  if (id === 'generic') return '已按通用 Skill 优化'
+  return videoRow?.prompt_adapted ? '已按当前模型优化' : ''
+}
+
+function onOpenSubmittedPrompt(sb) {
+  if (!sb?.id) return
+  const v = getSbVideo(sb.id)
+  submittedPromptView.value = {
+    source: (sb.universal_segment_text || sb.video_prompt || '').toString(),
+    submitted: (v?.prompt || '').toString(),
+    skill: skillBadgeText(v) || v?.prompt_skill_id || '',
+  }
+  showSubmittedPrompt.value = true
+}
+
+async function copySubmittedPrompt() {
+  const text = submittedPromptView.value.submitted
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('已复制提交词')
+  } catch (_) {
+    ElMessage.warning('复制失败，请手动选择文本')
+  }
+}
+
+function onOpenVideoPromptAdapt(sb, draft) {
+  if (!sb?.id) return
+  videoPromptAdaptTarget.value = sb
+  videoPromptAdaptDraft.value = (draft != null ? String(draft) : (sb.video_prompt || sb.universal_segment_text || '')).toString()
+  showVideoPromptAdapt.value = true
+}
+
+function onGenerateFromAdaptedPrompt(payload) {
+  const sb = videoPromptAdaptTarget.value
+  showVideoPromptAdapt.value = false
+  if (!sb?.id) return
+  onGenerateSbVideo(sb, {
+    prompt: payload?.prompt,
+    adapt_prompt: false,
+    adapted_by_skill_id: payload?.adapted_by_skill_id || payload?.skillId,
+  })
+}
+
+function onGenerateFromOriginalPrompt() {
+  const sb = videoPromptAdaptTarget.value
+  showVideoPromptAdapt.value = false
+  if (!sb?.id) return
+  onGenerateSbVideo(sb, { adapt_prompt: false })
+}
+
 function formatVideoPromptForEdit(text) {
   if (!text) return ''
   // 按「主体：」「运动：」等分段做换行，方便阅读
@@ -6498,7 +6620,7 @@ async function onRegenerateLayoutDescription(sb) {
   }
 }
 
-async function onGenerateSbVideo(sb) {
+async function onGenerateSbVideo(sb, opts = {}) {
   if (!dramaId.value || !sb?.id || !sbCanSubmitVideo(sb)) return
   const universal = isSbUniversalMode(sb.id)
   let universalOmniApi = universal
@@ -6581,10 +6703,10 @@ async function onGenerateSbVideo(sb) {
       referenceUrls = [...referenceUrls, vLast]
     }
     const preferClassicPrompt = universal && !universalOmniApi
-    const res = await videosAPI.create({
+    let createBody = {
       drama_id: dramaId.value,
       storyboard_id: sb.id,
-      prompt: buildSbVideoPromptForApi(sb, { preferClassicPrompt }),
+      prompt: (opts.prompt && String(opts.prompt).trim()) || buildSbVideoPromptForApi(sb, { preferClassicPrompt }),
       image_url: universalOmniApi ? undefined : ((vFirst || absoluteUrl) || undefined),
       first_frame_url: universalOmniApi ? undefined : (vFirst || absoluteUrl || undefined),
       last_frame_url: universalOmniApi ? undefined : vLast,
@@ -6593,7 +6715,14 @@ async function onGenerateSbVideo(sb) {
       aspect_ratio: projectAspectRatio.value || '16:9',
       resolution: videoResolution.value || undefined,
       duration: getSbVideoDurationForApi(sb),
-    })
+    }
+    if (opts.adapt_prompt === false) {
+      createBody.adapt_prompt = false
+      if (opts.adapted_by_skill_id) createBody.adapted_by_skill_id = opts.adapted_by_skill_id
+    } else {
+      createBody = applyVideoPromptAdaptCache(createBody, sb)
+    }
+    const res = await videosAPI.create(createBody)
     if (res?.task_id) {
       const pollRes = await pollTask(res.task_id, () => loadSingleStoryboardMedia(sb.id), meta)
       if (pollRes?.status === 'failed') {
@@ -7024,7 +7153,7 @@ async function startBatchVideoGeneration() {
           if (!universal && vLast && refUrls && !refUrls.includes(vLast)) {
             refUrls = [...refUrls, vLast]
           }
-          const res = await videosAPI.create({
+          const res = await videosAPI.create(applyVideoPromptAdaptCache({
             drama_id: dramaId.value,
             storyboard_id: sb.id,
             prompt: buildSbVideoPromptForApi(sb),
@@ -7036,7 +7165,7 @@ async function startBatchVideoGeneration() {
             aspect_ratio: projectAspectRatio.value || '16:9',
             resolution: videoResolution.value || undefined,
             duration: getSbVideoDurationForApi(sb),
-          })
+          }, sb))
           if (res?.task_id) {
             const meta = buildSbGenMeta(sb, GEN_RESOURCE.SB_VIDEO, '分镜视频')
             const pollRes = await pollTask(res.task_id, () => loadSingleStoryboardMedia(sb.id), meta)
@@ -7721,7 +7850,7 @@ async function runOneClickPipeline(textOnly = false) {
             if (!universal && vLast && refUrls && !refUrls.includes(vLast)) {
               refUrls = [...refUrls, vLast]
             }
-            const res = await videosAPI.create({
+            const res = await videosAPI.create(applyVideoPromptAdaptCache({
               drama_id: dramaIdVal,
               storyboard_id: sb.id,
               prompt: buildSbVideoPromptForApi(sb),
@@ -7733,7 +7862,7 @@ async function runOneClickPipeline(textOnly = false) {
               aspect_ratio: projectAspectRatio.value || '16:9',
               resolution: videoResolution.value || undefined,
               duration: getSbVideoDurationForApi(sb),
-            })
+            }, sb))
             if (res?.task_id) {
               const meta = buildSbGenMeta(sb, GEN_RESOURCE.SB_VIDEO, '分镜视频')
               const result = await pollTaskWithPause(res.task_id, () => loadSingleStoryboardMedia(sb.id), meta)
@@ -8062,7 +8191,7 @@ async function runRepairPipeline() {
             if (!universal && vLast && refUrls && !refUrls.includes(vLast)) {
               refUrls = [...refUrls, vLast]
             }
-            const res = await videosAPI.create({
+            const res = await videosAPI.create(applyVideoPromptAdaptCache({
               drama_id: dramaIdVal,
               storyboard_id: sb.id,
               prompt: buildSbVideoPromptForApi(sb),
@@ -8073,7 +8202,7 @@ async function runRepairPipeline() {
               aspect_ratio: projectAspectRatio.value || '16:9',
               resolution: videoResolution.value || undefined,
               duration: getSbVideoDurationForApi(sb),
-            })
+            }, sb))
             if (res?.task_id) {
               const meta = buildSbGenMeta(sb, GEN_RESOURCE.SB_VIDEO, '分镜视频')
               const result = await pollTaskWithPause(res.task_id, () => loadSingleStoryboardMedia(sb.id), meta)
@@ -10259,6 +10388,7 @@ html.light .sb-video-placeholder {
   flex-shrink: 0;
 }
 .sb-video-prompt-label > span:not(.sb-dot) { font-size: 0.85rem; color: #e4e4e7; }
+.sb-adapt-tag { margin-left: 4px; }
 .sb-video-params-bar {
   display: flex;
   align-items: flex-start;

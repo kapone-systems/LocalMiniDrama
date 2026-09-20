@@ -170,6 +170,22 @@
             <span class="gs-unit">个任务同时生成</span>
           </div>
 
+          <div class="gs-section-title" style="margin-top: 22px">🎬 视频提示词</div>
+          <p class="gs-desc">生成视频前，按当前默认视频模型的官方 Skill 改写提示词（如 MiniMax H3）。分镜上的通用视频词不会被覆盖。</p>
+          <div class="gs-row">
+            <span class="gs-label">生成前按当前模型优化</span>
+            <el-switch v-model="adaptVideoPromptInput" />
+          </div>
+          <div class="gs-row" style="margin-top: 8px">
+            <span class="gs-label">缓存改写结果到分镜</span>
+            <el-switch v-model="adaptVideoPromptCacheInput" />
+          </div>
+          <p v-if="resolvedVideoSkill" class="gs-desc" style="margin-top: 8px">
+            当前默认视频配置将使用：
+            <strong>{{ resolvedVideoSkill.skill ? resolvedVideoSkill.skill.label : '（无匹配 Skill / 全能未走专用 Skill）' }}</strong>
+            <span v-if="resolvedVideoSkill.model"> · 模型 {{ resolvedVideoSkill.model }}</span>
+          </p>
+
           <div style="margin-top: 14px">
             <el-button
               type="primary"
@@ -191,6 +207,7 @@
             <ul class="gs-tip-list">
               <li>图片并发：步骤 2 角色图、步骤 4 场景图、步骤 6 分镜图</li>
               <li>视频并发：步骤 7 分镜视频</li>
+              <li>视频提示词优化：列表 / 画布 / 一键流水线生视频都会走后端改写</li>
             </ul>
           </div>
         </div>
@@ -1156,7 +1173,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, MagicStick, QuestionFilled, Download, Upload, Delete, ChatDotRound, Picture, Film, VideoCamera, Key, Microphone, Folder } from '@element-plus/icons-vue'
 import { aiAPI } from '@/api/ai'
-import { generationSettingsAPI } from '@/api/prompts'
+import { generationSettingsAPI, videoPromptSkillsAPI } from '@/api/prompts'
 import PromptEditor from '@/components/PromptEditor.vue'
 import SceneModelMap from '@/components/SceneModelMap.vue'
 import Sd2AssetManagement from '@/components/Sd2AssetManagement.vue'
@@ -1190,6 +1207,9 @@ const activeTab = ref('configs')
 // ---- 生成设置 ----
 const genConcurrencyInput = ref(3)
 const genVideoConcurrencyInput = ref(3)
+const adaptVideoPromptInput = ref(true)
+const adaptVideoPromptCacheInput = ref(true)
+const resolvedVideoSkill = ref(null)
 const genSettingSaving = ref(false)
 const genSettingSaved = ref(false)
 
@@ -1198,7 +1218,14 @@ async function loadGenerationSettings() {
     const res = await generationSettingsAPI.get()
     genConcurrencyInput.value = res?.concurrency ?? 3
     genVideoConcurrencyInput.value = res?.video_concurrency ?? 3
+    adaptVideoPromptInput.value = res?.adapt_video_prompt !== false
+    adaptVideoPromptCacheInput.value = res?.adapt_video_prompt_cache !== false
   } catch (_) {}
+  try {
+    resolvedVideoSkill.value = await videoPromptSkillsAPI.resolve()
+  } catch (_) {
+    resolvedVideoSkill.value = null
+  }
 }
 
 function onConcurrencyChange(val) {
@@ -1225,7 +1252,12 @@ async function saveGenerationSettings() {
   genSettingSaving.value = true
   genSettingSaved.value = false
   try {
-    await generationSettingsAPI.update({ concurrency: Math.round(n), video_concurrency: Math.round(nv) })
+    await generationSettingsAPI.update({
+      concurrency: Math.round(n),
+      video_concurrency: Math.round(nv),
+      adapt_video_prompt: !!adaptVideoPromptInput.value,
+      adapt_video_prompt_cache: !!adaptVideoPromptCacheInput.value,
+    })
     genSettingSaved.value = true
     setTimeout(() => { genSettingSaved.value = false }, 2000)
   } catch (e) {

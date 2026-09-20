@@ -1,59 +1,82 @@
 const promptOverridesService = require('../services/promptOverridesService');
 const promptI18n = require('../services/promptI18n');
+const videoPromptSkills = require('../services/videoPromptSkills');
 const response = require('../response');
 
 // 提示词元数据：label / description 在此维护；内容（default_body / locked_suffix）从 promptI18n 动态读取
-const PROMPT_META = [
+const CORE_PROMPT_META = [
   {
     key: 'story_expansion_system',
     label: '故事生成提示词',
     description: '控制 AI 如何将故事梗概扩写成完整剧本',
+    group: 'core',
   },
   {
     key: 'storyboard_system',
     label: '分镜拆解提示词',
     description: '控制 AI 如何将剧本拆分成分镜头方案（输出格式要求已锁定）',
+    group: 'core',
   },
   {
     key: 'character_extraction',
     label: '角色提取提示词',
     description: '控制 AI 如何从剧本中提取角色信息（输出格式要求已锁定）',
+    group: 'core',
   },
   {
     key: 'scene_extraction',
     label: '场景提取提示词',
     description: '控制 AI 如何从剧本中提取场景背景（风格/比例和输出格式已锁定）',
+    group: 'core',
   },
   {
     key: 'prop_extraction',
     label: '道具提取提示词',
     description: '控制 AI 如何从剧本中提取关键道具（风格/比例和输出格式已锁定）',
+    group: 'core',
   },
   {
     key: 'storyboard_user_suffix',
     label: '分镜输出格式要求',
     description: '追加在分镜拆解用户提示词末尾的详细要素说明（JSON 输出格式已锁定）',
+    group: 'core',
   },
   {
     key: 'first_frame_prompt',
     label: '首帧图像提示词',
     description: '控制 AI 如何生成分镜首帧（动作前静态画面）的图像提示词（风格/比例和 JSON 格式已锁定）',
+    group: 'core',
   },
   {
     key: 'key_frame_prompt',
     label: '关键帧图像提示词',
     description: '控制 AI 如何生成分镜关键帧（动作高潮瞬间）的图像提示词（风格/比例和 JSON 格式已锁定）',
+    group: 'core',
   },
   {
     key: 'last_frame_prompt',
     label: '尾帧图像提示词',
     description: '控制 AI 如何生成分镜尾帧（动作后静态画面）的图像提示词（风格/比例和 JSON 格式已锁定）',
+    group: 'core',
   },
 ];
 
+function videoSkillMeta() {
+  return videoPromptSkills.listSkills().map((s) => ({
+    key: s.override_key,
+    label: s.label,
+    description: s.description,
+    group: 'video_skill',
+  }));
+}
+
+function getPromptMeta() {
+  return CORE_PROMPT_META.concat(videoSkillMeta());
+}
+
 // default_body 和 locked_suffix 从 promptI18n 动态读取，确保与运行时提示词始终一致
 function getPromptDefinitions() {
-  return PROMPT_META.map((m) => ({
+  return getPromptMeta().map((m) => ({
     ...m,
     default_body: promptI18n.getDefaultPromptBody(m.key),
     locked_suffix: promptI18n.getLockedSuffix(m.key),
@@ -72,6 +95,7 @@ function routes(db, log) {
           key: d.key,
           label: d.label,
           description: d.description,
+          group: d.group || 'core',
           default_body: d.default_body,
           locked_suffix: d.locked_suffix,
           current_body: overrideMap[d.key] || null,
