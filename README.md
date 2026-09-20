@@ -6,7 +6,7 @@
 
 *基于上游 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) v1.2.8 二次开发*
 
-[![version](https://img.shields.io/badge/version-1.3.0-blue?style=flat-square)](https://github.com/kapone-systems/LocalMiniDrama/releases)
+[![version](https://img.shields.io/badge/version-1.4.0-blue?style=flat-square)](https://github.com/kapone-systems/LocalMiniDrama/releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](#-快速开始)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#-项目架构)
@@ -32,7 +32,7 @@
 | 下载方式 | 上游 Releases | **只从本仓库 [Releases](https://github.com/kapone-systems/LocalMiniDrama/releases) 下载** |
 | grok2api 接入 | ❌ 无 | ✅ 图片 / 视频 / 文本协议 |
 | 本地 ComfyUI | ❌ 无 | ✅ 直连本机 8188 生图 / 分镜图 / 视频 |
-| 版本号 | 1.2.8 | 1.3.0 |
+| 版本号 | 1.2.8 | 1.4.0 |
 
 **重要：**
 
@@ -199,10 +199,10 @@
 
 | 版本 | 说明 | 适合 |
 |------|------|------|
-| `LocalMiniDrama-grok2api-Setup-x.x.x.exe` | 安装版，**含示例项目** | 新手入门 |
-| `LocalMiniDrama-grok2api-x.x.x.exe` | 便携版，免安装 | 想直接运行 |
-| `LocalMiniDrama-Lite-grok2api-Setup-x.x.x.exe` | 精简安装版，不含示例项目 | 熟悉流程后 |
-| `LocalMiniDrama-Lite-grok2api-x.x.x.exe` | 精简便携版 | 追求小体积 |
+| `LocalMiniDrama-Setup-x.x.x.exe` | 安装版，**含示例项目** | 新手入门 |
+| `LocalMiniDrama-x.x.x.exe` | 便携版，免安装 | 想直接运行 |
+| `LocalMiniDrama-Lite-Setup-x.x.x.exe` | 精简安装版，不含示例项目 | 熟悉流程后 |
+| `LocalMiniDrama-Lite-x.x.x.exe` | 精简便携版 | 追求小体积 |
 
 双击运行 → 「AI 配置」填入 API Key → 开始创作。
 
