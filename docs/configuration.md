@@ -17,6 +17,7 @@
   - [可用模型](#可用模型-1)
   - [配置示例](#配置示例-1)
 - [本地部署模型（Ollama 等）](#本地部署模型ollama-等)
+- [本地 ComfyUI](#本地-comfyui)
 - [其他 OpenAI 兼容接口](#其他-openai-兼容接口)
 - [一键配置功能](#一键配置功能)
 - [连接测试](#连接测试)
@@ -169,7 +170,86 @@ API Key：ollama   （或任意字符串，本地服务通常不验证）
 模型：qwen2.5:7b   （你下载的模型名）
 ```
 
-> ⚠️ 本地模型仅适用于**文本生成**，图片和视频生成通常需要专用的云端 API。
+> ⚠️ 本地 **文本** 模型（Ollama 等）仅适用于剧本生成。图片和视频请用云端 API，或下面的 **本地 ComfyUI**。
+
+---
+
+## 本地 ComfyUI
+
+把本机 [ComfyUI](https://github.com/comfyanonymous/ComfyUI) 当作角色图 / 场景图 / 分镜图 / 分镜视频后端。本项目 **不启动** Python 进程，请先自己开 Comfy：
+
+```
+python main.py --listen
+```
+
+默认地址 `http://127.0.0.1:8188`。AI 配置里选协议 **本地 ComfyUI**，API Key 可留空，点「测试连接」应打到 `/system_stats`。
+
+### 工作流必须是 API 格式
+
+在 ComfyUI 菜单用 **Save (API Format)** 导出 JSON（节点 id → `{ class_type, inputs, _meta.title }`）。  
+带 `nodes` / `links` 的默认工作流文件会被拒绝。
+
+**模型名 = 工作流文件名（不含 `.json`）**，不是 checkpoint 名。例如文件 `comfy-workflows/character-t2i.json`，配置里模型填 `character-t2i`。
+
+仓库示例：`docs/comfyui/example-t2i-api.json`。复制到 storage 下：
+
+```
+{storage.local_path}/comfy-workflows/character-t2i.json
+```
+
+然后把里面的 `PUT_YOUR_CHECKPOINT_HERE.safetensors` 改成你本机已有的权重。也可在 AI 配置页点「导入工作流」。
+
+建议分三条配置、三份图：
+
+| 服务类型 | 推荐模型名 | 工作流要点 |
+|---|---|---|
+| 图片（角色/场景/道具） | `character-t2i` | 文生图，标题含 Positive / Negative |
+| 分镜图 | `storyboard-i2i` | 多个 `LoadImage`，标题 `Reference Image 1`… |
+| 视频 | `storyboard-i2v` | `First Frame` + `Duration`，history 里要有 videos/gifs |
+
+### 节点标题约定
+
+大小写不敏感，子串匹配 `_meta.title`：
+
+| 标题包含 | 写入 |
+|---|---|
+| Positive | 正向提示词 |
+| Negative | 负向提示词 |
+| Width / Height | 宽高；没有标题时写入 EmptyLatentImage |
+| Reference Image 1 / 2 | 上传后的参考图文件名 |
+| First Frame / Last Frame | 视频首尾帧 |
+| Duration / FPS | 秒 / 帧率（默认 24） |
+
+找不到 Positive 且 settings.mapping 也没指定节点 → **直接失败**，不会静默用图里写死的提示词。
+
+可选 `settings.mapping` 按工作流名覆盖节点 id：
+
+```json
+{
+  "timeout_seconds": 1800,
+  "mapping": {
+    "character-t2i": {
+      "positive": { "node": "6", "input": "text" },
+      "negative": { "node": "7", "input": "text" }
+    }
+  }
+}
+```
+
+### 常见失败
+
+| 现象 | 原因 |
+|---|---|
+| 测试连接失败，含 8188 或 ECONNREFUSED | Comfy 没开，或没 `--listen` |
+| 请使用 Save (API Format) | 导入了 UI 格式 JSON |
+| 工作流未找到 Positive 节点 | 没改 CLIPTextEncode 标题，也没写 mapping |
+| 找不到工作流「xxx」 | 模型名填成了 checkpoint；错误信息会列出目录里已有的 json |
+| 节点 (CheckpointLoaderSimple): ckpt_name | 工作流里的权重文件本机没有 |
+| 任务一直转圈后超时 | Comfy 卡住或超时过短；settings.timeout_seconds 默认图 1800s、视频 3600s |
+
+同一 Comfy 地址上本协议会 **串行** 提交（日志：`comfyui 协议已串行化`），画布并发数对它不生效，避免叠两层队列打爆显存。
+
+一键包：预设画廊「本地 ComfyUI」，或导入 `各大平台中转站配置/comfyui.json`。
 
 ---
 
@@ -195,7 +275,7 @@ AI 配置页用「预设画廊」一次创建全套，不必手填协议。
 |---|---|
 | 官方直连 | 火山 / Agnes / 通义：填官方 Key |
 | 中转 / 聚合 | APIMart、硅基流动、OpenRouter，以及 302 / 飞儿 / 云雾 等 JSON 包 |
-| 自建网关 | grok2api：填本机 Base URL + Key |
+| 自建网关 | grok2api：填本机 Base URL + Key；本地 ComfyUI：直连 8188，Key 可空 |
 
 图/视频不要再用「OpenAI 兼容」去套异步中转。APIMart 必须选 **APIMart 任务中心**（`apimart`），轮询 `GET /v1/tasks/{id}`；硅基流动视频是 `POST /v1/video/submit` + `POST /v1/video/status`。海螺 02/2.3 与 MiniMax H3 是两套协议，不要混用。OpenAI 官方 Sora 用 `sora_official`（JSON `/v1/videos`），中转站 multipart 仍用原来的 `sora`。
 

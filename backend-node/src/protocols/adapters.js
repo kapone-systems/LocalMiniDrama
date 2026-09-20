@@ -760,3 +760,5 @@ createAdapter({
 });
 
 module.exports = { createAdapter };
+
+require('./comfyui/adapter');

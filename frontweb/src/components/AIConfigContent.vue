@@ -384,6 +384,17 @@
                   <b>Endpoint：</b><code>POST /v1beta/models/{model}:generateContent</code>
                 </div>
               </el-collapse-item>
+              <el-collapse-item name="comfyui-img">
+                <template #title><span class="ph-tag ph-tag-img">本地</span> ComfyUI — 直连 8188</template>
+                <div class="ph-body">
+                  <b>适用场景：</b>本机 ComfyUI 文生图 / 分镜图 / 图生视频<br>
+                  <b>Base URL：</b><code>http://127.0.0.1:8188</code>（API Key 可空）<br>
+                  <b>模型名：</b>工作流 JSON 文件名（不含 .json），<b>不是</b> checkpoint 名<br>
+                  <b>工作流：</b>必须用菜单 <code>Save (API Format)</code> 导出；默认 UI 格式会被拒绝<br>
+                  <b>节点标题：</b>Positive / Negative / Width / Height / Reference Image 1 / First Frame / Duration<br>
+                  复制 <code>docs/comfyui/example-t2i-api.json</code> 到 storage 下 <code>comfy-workflows/character-t2i.json</code> 并改 checkpoint。
+                </div>
+              </el-collapse-item>
             </el-collapse>
 
             <div class="ph-section-title" style="margin-top:16px">🎬 视频 协议</div>
@@ -565,10 +576,50 @@ input_reference = (图片文件，可选)</pre>
           <el-input
             v-model="form.api_key"
             type="password"
-            :placeholder="form.service_type === 'jimeng2_character_auth' ? 'Bearer Token' : (form.provider === 'jimeng_ai_api' ? '即梦 Session，多个用英文逗号分隔' : 'API 密钥')"
+            :placeholder="form.service_type === 'jimeng2_character_auth' ? 'Bearer Token' : (isComfyUiForm ? '本地 ComfyUI 可留空' : (form.provider === 'jimeng_ai_api' ? '即梦 Session，多个用英文逗号分隔' : 'API 密钥'))"
             show-password
           />
         </el-form-item>
+        <template v-if="isComfyUiForm">
+          <el-alert
+            type="info"
+            :closable="false"
+            show-icon
+            style="margin-bottom: 12px"
+            title="模型名 = 工作流 JSON 文件名（不含 .json），不是 checkpoint 名"
+            description="请用 ComfyUI 菜单 Save (API Format) 导出。节点标题需含 Positive / Negative；分镜图用 Reference Image 1；视频用 First Frame 与 Duration。"
+          />
+          <el-form-item>
+            <template #label><span class="form-label-tip">工作流</span></template>
+            <div class="jimeng2-assets-actions">
+              <input ref="comfyFileRef" type="file" accept=".json" hidden @change="onComfyWorkflowFile" />
+              <el-button type="primary" plain :loading="comfyImporting" @click="comfyFileRef?.click()">导入工作流</el-button>
+              <el-button plain :loading="comfyWorkflowsLoading" @click="refreshComfyWorkflows">刷新列表</el-button>
+            </div>
+            <div v-if="comfyWorkflows.length" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px">
+              <el-tag
+                v-for="w in comfyWorkflows"
+                :key="w.name"
+                :type="w.has_positive ? '' : 'warning'"
+                style="cursor: pointer"
+                closable
+                @click="appendComfyModel(w.name)"
+                @close.prevent="removeComfyWorkflow(w.name)"
+              >{{ w.name }}</el-tag>
+            </div>
+            <p class="field-tip">点击标签追加到模型列表。黄色表示还没有 Positive 标题（可继续，稍后用下方 mapping 指定节点）。</p>
+          </el-form-item>
+          <el-form-item>
+            <template #label><span class="form-label-tip">settings / mapping</span></template>
+            <el-input
+              v-model="form.comfy_settings_text"
+              type="textarea"
+              :rows="6"
+              placeholder='{"timeout_seconds":1800,"poll_interval_ms":2000,"free_before_video":true,"mapping":{}}'
+            />
+            <p class="field-tip">可选。mapping 按工作流名覆盖节点 id，例如 character-t2i.positive.node = "6"。标题故意写错时靠 mapping 仍能出图。</p>
+          </el-form-item>
+        </template>
         <el-form-item v-if="form.service_type === 'jimeng2_character_auth'">
           <template #label><span class="form-label-tip">素材列表</span></template>
           <div class="jimeng2-assets-actions">
@@ -1118,7 +1169,7 @@ input_reference = (图片文件，可选)</pre>
           v-if="testServiceType === 'image' || testServiceType === 'storyboard_image' || testServiceType === 'video'"
           type="success"
           title="连接成功"
-          description="API Key 有效，网络已连通。提示：测试仅验证 Key 合法性，不实际生成图片/视频，模型名填错、账号未开通该功能或配额不足时实际生成仍可能报错。"
+          :description="testError || 'API Key 有效，网络已连通。提示：测试仅验证 Key 合法性，不实际生成图片/视频，模型名填错、账号未开通该功能或配额不足时实际生成仍可能报错。'"
           show-icon
           :closable="false"
         />
@@ -1201,6 +1252,12 @@ const filteredList = computed(() => (
 ))
 const protocolGroups = computed(() => protocolsForService(form.value.service_type))
 const activeProtocolHelp = computed(() => findProtocol(form.value.api_protocol)?.help || '')
+const isComfyUiForm = computed(() => {
+  const proto = String(form.value.api_protocol || '').toLowerCase()
+  const provider = String(form.value.provider || '').toLowerCase()
+  return proto === 'comfyui' || proto === 'comfy' || proto === 'local_comfy'
+    || provider === 'comfyui' || provider === 'comfy' || provider === 'local_comfy'
+})
 
 const activeTab = ref('configs')
 
@@ -1283,6 +1340,10 @@ const jimeng2AssetsLoading = ref(false)
 const jimeng2AssetsRows = ref([])
 const jimeng2AssetsHasMore = ref(false)
 const jimeng2AssetsNextCursor = ref(null)
+const comfyFileRef = ref(null)
+const comfyWorkflows = ref([])
+const comfyWorkflowsLoading = ref(false)
+const comfyImporting = ref(false)
 const formRef = ref(null)
 const form = ref({
   service_type: 'text',
@@ -1306,6 +1367,7 @@ const form = ref({
   // TTS 专属字段
   voice_id: '',
   group_id: '',
+  comfy_settings_text: '',
 })
 const presetModelPick = ref('')
 
@@ -1381,6 +1443,11 @@ const rules = computed(() => ({
           return cb(new Error('请填写 Token'))
         }
         const proto = form.value.api_protocol
+        const provider = String(form.value.provider || '').toLowerCase()
+        if (proto === 'comfyui' || proto === 'comfy' || proto === 'local_comfy'
+          || provider === 'comfyui' || provider === 'comfy' || provider === 'local_comfy') {
+          return cb()
+        }
         const ak = (form.value.kling_access_key || '').trim()
         const sk = (form.value.kling_secret_key || '').trim()
         if (st === 'video' && proto === 'kling_omni' && ak && sk) return cb()
@@ -1616,6 +1683,9 @@ const endpointPreviewInfo = computed(() => {
       submitPath = '/v1/images/generations'  // nano_banana base_url 无 /v1
     } else if (proto === 'kling' || p === 'kling' || p === 'klingai') {
       submitPath = '/v1/images/generations'
+    } else if (proto === 'comfyui' || p === 'comfyui' || p === 'comfy') {
+      submitPath = '/prompt'
+      queryPath = '/history/{prompt_id}'
     } else {
       submitPath = '/images/generations'  // openai 兼容：base_url 已含 /v1
     }
@@ -1663,6 +1733,8 @@ const endpointPreviewInfo = computed(() => {
       submitPath = '/v1/videos/text2video (T2V) 或 /v1/videos/image2video (I2V)'
     } else if (p === 'minimax') {
       submitPath = '/video_generation'  // minimax base_url 已含 /v1
+    } else if (proto === 'comfyui' || p === 'comfyui' || p === 'comfy') {
+      submitPath = '/prompt'
     } else {
       submitPath = '/v1/video/create'
     }
@@ -1702,6 +1774,8 @@ const endpointPreviewInfo = computed(() => {
       queryPath = '/v1/videos/{videoType}/{taskId}（自动按任务类型选择）'
     } else if (p === 'minimax') {
       queryPath = '/query/video_generation?task_id={taskId}'  // minimax base_url 已含 /v1
+    } else if (proto === 'comfyui' || p === 'comfyui' || p === 'comfy') {
+      queryPath = '/history/{prompt_id}'
     } else if (proto !== 'gemini' && p !== 'gemini') {
       queryPath = '/v1/video/query?id={taskId}'
     }
@@ -1876,6 +1950,7 @@ function resetForm() {
     kling_access_key: '',
     kling_secret_key: '',
     kling_secret_key_base64: false,
+    comfy_settings_text: '',
   }
   formRef.value?.resetFields?.()
 }
@@ -1896,6 +1971,7 @@ function openEdit(row) {
   let kling_access_key = ''
   let kling_secret_key = ''
   let kling_secret_key_base64 = false
+  let comfy_settings_text = ''
   const deepseekSettings = resolveDeepSeekFormSettings(row)
   if (row.settings) {
     try {
@@ -1908,6 +1984,10 @@ function openEdit(row) {
         kling_access_key = s.kling_access_key || ''
         kling_secret_key = s.kling_secret_key || ''
         kling_secret_key_base64 = !!s.kling_secret_key_base64
+      }
+      const proto = String(row.api_protocol || '').toLowerCase()
+      if (proto === 'comfyui' || proto === 'comfy' || proto === 'local_comfy') {
+        comfy_settings_text = JSON.stringify(s, null, 2)
       }
     } catch (_) {}
   }
@@ -1931,6 +2011,7 @@ function openEdit(row) {
     kling_access_key,
     kling_secret_key,
     kling_secret_key_base64,
+    comfy_settings_text,
   }
   dialogVisible.value = true
 }
@@ -1980,6 +2061,20 @@ async function submit() {
         delete baseS.deepseek_reasoning_effort
       }
       settings = Object.keys(baseS).length ? JSON.stringify(baseS) : null
+    } else if (isComfyUiForm.value) {
+      const raw = (form.value.comfy_settings_text || '').trim()
+      if (raw) {
+        try {
+          JSON.parse(raw)
+          settings = raw
+        } catch (e) {
+          ElMessage.error('settings JSON 无法解析: ' + e.message)
+          saving.value = false
+          return
+        }
+      } else {
+        settings = null
+      }
     }
     const payload = {
       service_type: form.value.service_type,
@@ -2081,6 +2176,64 @@ function loadMoreJimeng2MaterialAssets() {
   fetchJimeng2MaterialAssets(false)
 }
 
+async function refreshComfyWorkflows() {
+  comfyWorkflowsLoading.value = true
+  try {
+    const data = await aiAPI.listComfyWorkflows()
+    comfyWorkflows.value = Array.isArray(data?.items) ? data.items : []
+  } catch (_) {
+    comfyWorkflows.value = []
+  } finally {
+    comfyWorkflowsLoading.value = false
+  }
+}
+
+function appendComfyModel(name) {
+  const cur = parseModelText(form.value.modelText)
+  if (!cur.includes(name)) {
+    form.value.modelText = (form.value.modelText || '').trim()
+      ? `${form.value.modelText.trim()}\n${name}`
+      : name
+  }
+  if (!form.value.default_model) form.value.default_model = name
+}
+
+async function onComfyWorkflowFile(ev) {
+  const file = ev.target.files?.[0]
+  ev.target.value = ''
+  if (!file) return
+  comfyImporting.value = true
+  try {
+    const saved = await aiAPI.importComfyWorkflow(file)
+    if (saved?.warning) ElMessage.warning(saved.warning)
+    else ElMessage.success(`已导入 ${saved?.name || file.name}`)
+    if (saved?.name) appendComfyModel(saved.name)
+    await refreshComfyWorkflows()
+  } catch (_) {
+  } finally {
+    comfyImporting.value = false
+  }
+}
+
+async function removeComfyWorkflow(name) {
+  try {
+    await ElMessageBox.confirm(`删除工作流「${name}」？`, '删除确认', { type: 'warning' })
+    await aiAPI.deleteComfyWorkflow(name)
+    ElMessage.success('已删除')
+    await refreshComfyWorkflows()
+  } catch (_) {}
+}
+
+watch(isComfyUiForm, (on) => {
+  if (on) refreshComfyWorkflows()
+})
+
+watch(() => form.value.api_protocol, (proto) => {
+  if (String(proto || '').toLowerCase() === 'comfyui' && !form.value.base_url) {
+    form.value.base_url = 'http://127.0.0.1:8188'
+  }
+})
+
 async function openTest(row) {
   if (row.service_type === 'jimeng2_character_auth') {
     ElMessage.info('即梦2角色认证无需在此联调；保存后请在创作页「角色生成」中点击「SD2认证」验证。')
@@ -2100,11 +2253,14 @@ async function openTest(row) {
       api_key: row.api_key,
       model: Array.isArray(row.model) ? row.model[0] : row.model,
       provider: row.provider,
+      api_protocol: row.api_protocol,
       endpoint: row.endpoint,
       service_type: row.service_type,
       settings: row.settings
+    }).then((data) => {
+      testResult.value = true
+      testError.value = data?.message || ''
     })
-    testResult.value = true
   } catch (e) {
     testResult.value = false
     testError.value = e?.message || '请求失败'

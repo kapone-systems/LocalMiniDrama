@@ -17,6 +17,13 @@ export const PROTOCOL_GROUPS = [
     ],
   },
   {
+    id: 'local',
+    label: '本地',
+    items: [
+      { id: 'comfyui', label: '本地 ComfyUI', services: ['image', 'storyboard_image', 'video'], help: '直连本机 8188。模型名 = 工作流 JSON 文件名（API 格式，不含 .json），不是 checkpoint 名。节点标题需含 Positive / Negative / Reference Image 1。' },
+    ],
+  },
+  {
     id: 'image',
     label: '图片协议',
     items: [
@@ -125,6 +132,7 @@ export const PROVIDER_PRESETS = {
     { id: 'ideogram', name: 'Ideogram', models: ['V_3'] },
     { id: 'midjourney', name: 'Midjourney', models: ['midjourney'] },
     { id: 'zhipu', name: '智谱', models: ['cogview-3-flash'] },
+    { id: 'comfyui', name: '本地 ComfyUI', models: ['character-t2i'] },
   ],
   storyboard_image: [
     { id: 'volcengine', name: '火山引擎', models: ['doubao-seedream-4-5-251128'] },
@@ -134,6 +142,7 @@ export const PROVIDER_PRESETS = {
     { id: 'grok2api', name: 'grok2api', models: ['grok-imagine-image'] },
     { id: 'dashscope', name: '通义万象', models: ['wan2.6-image'] },
     { id: 'openai', name: 'OpenAI', models: ['dall-e-3'] },
+    { id: 'comfyui', name: '本地 ComfyUI', models: ['storyboard-i2i'] },
   ],
   video: [
     { id: 'apimart', name: 'APIMart', models: ['grok-imagine-video', 'sora-2', 'veo3.1'] },
@@ -154,6 +163,7 @@ export const PROVIDER_PRESETS = {
     { id: 'pixverse', name: 'PixVerse', models: ['pixverse-v4'] },
     { id: 'zhipu', name: '智谱清影', models: ['cogvideox-2'] },
     { id: 'jimeng_ai_api', name: '即梦自建', models: ['jimeng-video'] },
+    { id: 'comfyui', name: '本地 ComfyUI', models: ['storyboard-i2v'] },
   ],
   tts: [
     { id: 'minimax', name: 'MiniMax', models: ['speech-02-hd'] },
@@ -181,6 +191,7 @@ export const PROVIDER_PROTOCOL = {
   pixverse: 'pixverse', skyreels: 'skyreels', runway: 'runway', luma: 'luma', pika: 'pika',
   ideogram: 'ideogram', midjourney: 'midjourney',
   zhipu: 'zhipu', hunyuan: 'hunyuan', qianfan: 'qianfan', spark: 'spark', runninghub: 'runninghub',
+  comfyui: 'comfyui', comfy: 'comfyui', local_comfy: 'comfyui',
 }
 
 export const PROVIDER_BASE = {
@@ -220,6 +231,8 @@ export const PROVIDER_BASE = {
   luma: 'https://api.lumalabs.ai',
   ideogram: 'https://api.ideogram.ai',
   runninghub: 'https://www.runninghub.cn',
+  comfyui: 'http://127.0.0.1:8188',
+  comfy: 'http://127.0.0.1:8188',
 }
 
 function rows(list) {
@@ -317,6 +330,16 @@ export const PRESET_PACKS = [
   { id: 'pack-n1n', group: 'relay', title: 'n1n', desc: 'api.n1n.ai 中转模板', file: 'n1n' },
   { id: 'pack-geeknow', group: 'relay', title: 'GeekNow', desc: 'geeknow.top 中转模板', file: 'geeknow' },
   { id: 'pack-vector', group: 'relay', title: '向量', desc: 'vectorengine 中转模板', file: '向量' },
+  {
+    id: 'comfyui',
+    group: 'selfhost',
+    title: '本地 ComfyUI',
+    desc: '直连本机 8188。模型名 = 工作流文件名。API Key 可留空。',
+    needsBaseUrl: true,
+    needsApiKey: false,
+    defaultBaseUrl: 'http://127.0.0.1:8188',
+    file: 'comfyui',
+  },
   {
     id: 'tongyi',
     group: 'official',

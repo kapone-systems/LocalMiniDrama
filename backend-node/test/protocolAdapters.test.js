@@ -61,7 +61,7 @@ describe('protocol registry', () => {
       'apimart', 'siliconflow', 'openrouter', 'fal', 'replicate', 'piapi', 'kie',
       'novita', 'minimax_hailuo', 'sora_official', 'jimeng_official', 'pixverse',
       'skyreels', 'runway', 'luma', 'pika', 'ideogram', 'midjourney', 'zhipu',
-      'hunyuan', 'qianfan', 'spark', 'runninghub',
+      'hunyuan', 'qianfan', 'spark', 'runninghub', 'comfyui',
     ]) {
       assert.ok(ids.includes(need), `missing ${need}`);
     }
@@ -73,6 +73,8 @@ describe('protocol registry', () => {
     assert.equal(inferFromRegistry({ provider: 'apimart', service: 'image' }), 'apimart');
     assert.equal(inferFromRegistry({ baseUrl: 'https://api.siliconflow.cn/v1' }), 'siliconflow');
     assert.equal(inferFromRegistry({ provider: 'grok2api', model: 'grok-imagine-image' }), '');
+    assert.equal(inferFromRegistry({ provider: 'comfyui' }), 'comfyui');
+    assert.equal(inferFromRegistry({ baseUrl: 'http://127.0.0.1:8188' }), 'comfyui');
   });
 });
 

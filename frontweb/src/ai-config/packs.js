@@ -5,6 +5,7 @@ import packYunwu from './packs/云雾ai.json'
 import packN1n from './packs/n1n.json'
 import packGeek from './packs/geeknow.json'
 import packVector from './packs/向量.json'
+import packComfy from './packs/comfyui.json'
 
 const FILE_PACKS = {
   '302ai-302': pack302,
@@ -13,6 +14,7 @@ const FILE_PACKS = {
   n1n: packN1n,
   geeknow: packGeek,
   向量: packVector,
+  comfyui: packComfy,
 }
 
 export function resolvePackConfigs(pack) {

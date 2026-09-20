@@ -1,5 +1,19 @@
+const path = require('path');
+const multer = require('multer');
 const aiConfigService = require('../services/aiConfigService');
 const response = require('../response');
+const store = require('../protocols/comfyui/workflowStore');
+const { assertApiWorkflow } = require('../protocols/comfyui/inject');
+
+const comfyWorkflowUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const name = String(file.originalname || '').toLowerCase();
+    if (!name.endsWith('.json')) return cb(new Error('只支持 .json 工作流文件'));
+    cb(null, true);
+  },
+});
 
 function list(db) {
   return (req, res) => {
@@ -35,7 +49,8 @@ function create(db, log, cfg) {
       return response.badRequest(res, '缺少必填字段: service_type, name, provider, base_url');
     }
     if (body.api_key === undefined || body.api_key === null) {
-      return response.badRequest(res, '缺少必填字段: api_key');
+      if (aiConfigService.isComfyUiRequest(body)) body.api_key = '';
+      else return response.badRequest(res, '缺少必填字段: api_key');
     }
     try {
       const config = aiConfigService.createConfig(db, log, {
@@ -106,11 +121,14 @@ function bulkUpdateKey(db, log, cfg) {
 function testConnection(log) {
   return async (req, res) => {
     const body = req.body || {};
-    if (!body.base_url || !body.api_key) {
+    if (!body.base_url) {
+      return response.badRequest(res, '缺少 base_url');
+    }
+    if (!body.api_key && !aiConfigService.isComfyUiRequest(body)) {
       return response.badRequest(res, '缺少 base_url 或 api_key');
     }
     try {
-      await aiConfigService.testConnection({
+      const extra = await aiConfigService.testConnection({
         base_url: body.base_url,
         api_key: body.api_key,
         model: body.model,
@@ -120,10 +138,91 @@ function testConnection(log) {
         service_type: body.service_type,
         settings: body.settings,
       });
-      response.success(res, { message: '连接测试成功' });
+      const payload = { message: '连接测试成功' };
+      if (extra && typeof extra === 'object') {
+        if (extra.message) payload.message = extra.message;
+        if (extra.version) payload.version = extra.version;
+        if (extra.workflows) payload.workflows = extra.workflows;
+      }
+      response.success(res, payload);
     } catch (err) {
       log.error('AI config test connection failed', { error: err.message });
       response.badRequest(res, '连接测试失败: ' + (err.message || '未知错误'));
+    }
+  };
+}
+
+function workflowConfigFromReq(req, cfg) {
+  const body = req.body || {};
+  const query = req.query || {};
+  const rawStorage = cfg?.storage?.local_path || './data/storage';
+  const storagePath = path.isAbsolute(rawStorage) ? rawStorage : path.join(process.cwd(), rawStorage);
+  return {
+    settings: body.settings || query.settings || null,
+    storage_local_path: storagePath,
+  };
+}
+
+function listComfyWorkflows(cfg) {
+  return (req, res) => {
+    try {
+      const config = workflowConfigFromReq(req, cfg);
+      const names = store.listWorkflowNames(config);
+      const items = names.map((name) => {
+        let has_positive = false;
+        try {
+          const wf = store.loadWorkflow(config, name);
+          has_positive = store.workflowHasPositive(wf);
+        } catch (_) {}
+        return { name, has_positive };
+      });
+      response.success(res, { items, dir: store.resolveWorkflowsDir(config) });
+    } catch (err) {
+      response.badRequest(res, err.message || '列出工作流失败');
+    }
+  };
+}
+
+function importComfyWorkflow(cfg, log) {
+  return (req, res) => {
+    if (!req.file || !req.file.buffer) {
+      return response.badRequest(res, '请选择工作流 JSON 文件');
+    }
+    let json;
+    try {
+      json = JSON.parse(req.file.buffer.toString('utf8'));
+    } catch (e) {
+      return response.badRequest(res, '工作流不是合法 JSON: ' + e.message);
+    }
+    try {
+      assertApiWorkflow(json);
+    } catch (e) {
+      return response.badRequest(res, e.message);
+    }
+    const original = String(req.file.originalname || 'workflow.json');
+    const stem = (req.body && req.body.name) || original.replace(/\.json$/i, '');
+    try {
+      const saved = store.saveWorkflow(workflowConfigFromReq(req, cfg), stem, json);
+      const warning = saved.has_positive
+        ? ''
+        : '未找到 Positive 标题，生图前请给 CLIPTextEncode 加上 Positive，或在 settings.mapping 里指定节点 id';
+      if (log) log.info('[comfyui] 导入工作流', { name: saved.name, has_positive: saved.has_positive });
+      response.success(res, { ...saved, warning });
+    } catch (e) {
+      response.badRequest(res, e.message || '导入失败');
+    }
+  };
+}
+
+function deleteComfyWorkflow(cfg, log) {
+  return (req, res) => {
+    const name = req.params.name;
+    try {
+      const deleted = store.deleteWorkflow(workflowConfigFromReq(req, cfg), name);
+      if (log) log.info('[comfyui] 删除工作流', { name: deleted.name });
+      response.success(res, deleted);
+    } catch (e) {
+      response.badRequest(res, e.message || '删除失败');
     }
   };
 }
@@ -195,5 +294,9 @@ module.exports = function aiConfigRoutes(db, log, cfg) {
     listJimeng2MaterialAssets: listJimeng2MaterialAssets(log),
     modelArkAsset: modelArkAsset(log),
     bulkUpdateKey: bulkUpdateKey(db, log, cfg),
+    listComfyWorkflows: listComfyWorkflows(cfg),
+    importComfyWorkflowMulter: comfyWorkflowUpload.single('file'),
+    importComfyWorkflow: importComfyWorkflow(cfg, log),
+    deleteComfyWorkflow: deleteComfyWorkflow(cfg, log),
   };
 };

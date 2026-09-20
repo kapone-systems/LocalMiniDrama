@@ -1,3 +1,13 @@
+# 正式路径：本仓库直连 ComfyUI（`api_protocol: comfyui`）
+
+从 2026-09-20 起，产品主路径是 **Node 后端直连本机 `http://127.0.0.1:8188`**（`/prompt` + `/history` + `/view`），在 AI 配置里选「本地 ComfyUI」。  
+工作流必须是 **Save (API Format)**；模型名 = JSON 文件名。详见 `docs/configuration.md` 的「本地 ComfyUI」和 `docs/plans/2026-09-20-local-comfyui-protocol.md`。
+
+下文 Rust `comfyui-openai-api` **仅供对照标题约定、验证工作流**，不是产品依赖，不要写进 AI 配置一键包。  
+视频不要走 OpenAI 兼容去打这个代理（轮询路径与本项目默认视频协议不一致）。
+
+---
+
 # 使用系统自带的PowerShell执行
 # 1.将ComfyUI包装成标准的OpenAI API接口
 CD C:\ComfyUI

@@ -32,5 +32,27 @@ export const aiAPI = {
   },
   bulkUpdateKey(apiKey) {
     return request.put('/ai-configs/bulk-update-key', { api_key: apiKey })
-  }
+  },
+  listComfyWorkflows() {
+    return request.get('/ai-configs/comfy-workflows')
+  },
+  importComfyWorkflow(file, name) {
+    const fd = new FormData()
+    fd.append('file', file)
+    if (name) fd.append('name', name)
+    return request.post('/ai-configs/comfy-workflows', fd, {
+      transformRequest: [
+        (data, headers) => {
+          if (headers) {
+            delete headers['Content-Type']
+            delete headers['content-type']
+          }
+          return data
+        },
+      ],
+    })
+  },
+  deleteComfyWorkflow(name) {
+    return request.delete(`/ai-configs/comfy-workflows/${encodeURIComponent(name)}`)
+  },
 }

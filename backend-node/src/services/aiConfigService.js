@@ -260,6 +260,20 @@ function rowToConfig(r) {
   return cfg;
 }
 
+function isComfyUiRequest(opts) {
+  const proto = String(opts.api_protocol || '').trim().toLowerCase();
+  if (proto === 'comfyui' || proto === 'comfy' || proto === 'local_comfy') return true;
+  const provider = String(opts.provider || '').trim().toLowerCase();
+  if (provider === 'comfyui' || provider === 'comfy' || provider === 'local_comfy') return true;
+  const inferred = inferFromRegistry({
+    provider,
+    model: Array.isArray(opts.model) ? opts.model[0] : opts.model,
+    baseUrl: opts.base_url,
+    service: opts.service_type,
+  });
+  return inferred === 'comfyui';
+}
+
 /**
  * 是否为 grok2api 连接（用于选择更准确的试连策略）。
  * 判据：provider 显式声明 grok2api，或模型名是 grok-imagine-* / grok-voice-* / grok-stt
@@ -286,12 +300,15 @@ function isGrok2ApiConnection(opts) {
 async function testConnection(opts) {
   const base = (opts.base_url || '').replace(/\/$/, '');
   if (!base) throw new Error('base_url 必填');
-  if (!opts.api_key) throw new Error('api_key 必填');
   const models = Array.isArray(opts.model) ? opts.model : opts.model != null ? [opts.model] : [];
   const model = models[0] || '';
-  if (!model && (opts.provider === 'gemini' || opts.provider === 'google')) throw new Error('model 必填');
   const provider = (opts.provider || 'openai').toLowerCase();
   const serviceType = (opts.service_type || '').toLowerCase();
+  const protoHint = String(opts.api_protocol || '').toLowerCase()
+    || inferFromRegistry({ provider, model, baseUrl: base, service: serviceType });
+  const comfy = isComfyUiRequest(opts) || protoHint === 'comfyui';
+  if (!opts.api_key && !comfy) throw new Error('api_key 必填');
+  if (!model && (opts.provider === 'gemini' || opts.provider === 'google')) throw new Error('model 必填');
   let endpoint = opts.endpoint || '';
 
   // --- grok2api ---
@@ -299,12 +316,9 @@ async function testConnection(opts) {
   // GET /v1/models，能同时验证 key 有效性和「模型是否真的存在」——后者正是过去
   // 「测试连接成功但实际生成 400」的根因（配置里写了不存在的 grok-imagine-medium）。
   // 契约见 docs/grok2api-contract.md §2、§3。
-  const protoHint = String(opts.api_protocol || '').toLowerCase()
-    || inferFromRegistry({ provider, model, baseUrl: base, service: serviceType });
   const registered = getProtocol(protoHint);
   if (registered && typeof registered.testConnection === 'function' && protoHint && protoHint !== 'openai') {
-    await registered.testConnection(opts);
-    return;
+    return registered.testConnection(opts);
   }
 
   if (isGrok2ApiConnection(opts)) {
@@ -659,6 +673,7 @@ module.exports = {
   updateConfig,
   deleteConfig,
   testConnection,
+  isComfyUiRequest,
   isGrok2ApiConnection,
   getVendorLockStatus,
   applyVendorLock,

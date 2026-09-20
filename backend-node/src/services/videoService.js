@@ -1,6 +1,19 @@
-/** 轮询/同步返回的 video_url 须为 http(s)，避免中转 FAILURE 时 result_url 为错误文案 */
+function isPlausibleLocalVideoSource(videoUrl) {
+  if (!videoUrl || typeof videoUrl !== 'string') return false;
+  const t = videoUrl.trim();
+  if (/^data:(video\/|image\/gif)/i.test(t)) return true;
+  if (/^file:\/\//i.test(t)) return true;
+  if (/^[a-zA-Z]:[\\/]/.test(t)) return true;
+  if (t.startsWith('/') && !t.startsWith('//')) return true;
+  return false;
+}
+
+/** 轮询/同步返回的 video_url 须为 http(s) 或本机 Comfy 落盘路径，避免中转 FAILURE 时 result_url 为错误文案 */
 function resolveRemoteVideoUrl(videoUrl, fallbackError) {
   if (videoUrl && videoClient.isPlausibleHttpVideoUrl(videoUrl)) {
+    return { ok: true, video_url: String(videoUrl).trim() };
+  }
+  if (videoUrl && isPlausibleLocalVideoSource(videoUrl)) {
     return { ok: true, video_url: String(videoUrl).trim() };
   }
   if (videoUrl) {
@@ -107,21 +120,67 @@ function resolveVideosDir(storagePath, projectSubdir) {
  * 将远程 video_url 下载到本地
  * @returns {string|null} 相对 storage 根的路径，如 projects/.../videos/vg_1_xxx.mp4；无工程时为 videos/...
  */
+function localPathFromVideoUrl(videoUrl) {
+  const t = String(videoUrl || '').trim();
+  if (/^file:\/\//i.test(t)) {
+    try {
+      return decodeURIComponent(t.replace(/^file:\/\//i, '').replace(/^\/([a-zA-Z]:)/, '$1'));
+    } catch (_) {
+      return t.replace(/^file:\/\//i, '');
+    }
+  }
+  if (/^[a-zA-Z]:[\\/]/.test(t) || (t.startsWith('/') && !t.startsWith('//'))) return t;
+  return null;
+}
+
 async function downloadVideoToLocal(storagePath, videoUrl, videoGenId, log, projectSubdir = null) {
   if (!videoUrl || typeof videoUrl !== 'string') return null;
   const { dir, relPrefix } = resolveVideosDir(storagePath, projectSubdir);
   try {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const ext = (videoUrl.split('?')[0].match(/\.(mp4|webm|mov)$/i) || [])[1] || 'mp4';
+    let ext = (videoUrl.split('?')[0].match(/\.(mp4|webm|mov|gif)$/i) || [])[1] || 'mp4';
+    let buffer = null;
+    if (videoUrl.startsWith('data:')) {
+      const match = videoUrl.match(/^data:([^;]+);base64,(.+)$/i);
+      if (!match) {
+        log.warn('downloadVideoToLocal: invalid data URL');
+        return null;
+      }
+      buffer = Buffer.from(match[2], 'base64');
+      const mime = match[1].toLowerCase();
+      if (mime.includes('webm')) ext = 'webm';
+      else if (mime.includes('gif')) ext = 'gif';
+      else if (mime.includes('quicktime') || mime.includes('mov')) ext = 'mov';
+      else ext = 'mp4';
+    } else {
+      const localSrc = localPathFromVideoUrl(videoUrl);
+      if (localSrc) {
+        if (!fs.existsSync(localSrc)) {
+          log.warn('downloadVideoToLocal: local file missing', { localSrc });
+          return null;
+        }
+        buffer = fs.readFileSync(localSrc);
+        const fromName = (localSrc.match(/\.(mp4|webm|mov|gif)$/i) || [])[1];
+        if (fromName) ext = fromName;
+        try {
+          const os = require('os');
+          if (path.basename(localSrc).startsWith('comfy_') && localSrc.startsWith(os.tmpdir())) {
+            fs.unlinkSync(localSrc);
+          }
+        } catch (_) {}
+      }
+    }
     const name = `vg_${videoGenId}_${randomUUID().slice(0, 8)}.${ext}`;
     const filePath = path.join(dir, name);
-    const res = await fetch(videoUrl, { method: 'GET' });
-    if (!res.ok) {
-      log.warn('Download video failed', { status: res.status, videoGenId });
-      return null;
+    if (!buffer) {
+      const res = await fetch(videoUrl, { method: 'GET' });
+      if (!res.ok) {
+        log.warn('Download video failed', { status: res.status, videoGenId });
+        return null;
+      }
+      buffer = Buffer.from(await res.arrayBuffer());
     }
-    const buf = Buffer.from(await res.arrayBuffer());
-    fs.writeFileSync(filePath, buf);
+    fs.writeFileSync(filePath, buffer);
     const relativePath = `${relPrefix}/${name}`.replace(/\\/g, '/');
     log.info('Video saved to local', { videoGenId, local_path: relativePath, projectSubdir: projectSubdir || '(root)' });
     return relativePath;

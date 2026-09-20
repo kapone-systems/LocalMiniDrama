@@ -1,0 +1,50 @@
+[
+  {
+    "service_type": "image",
+    "provider": "comfyui",
+    "api_protocol": "comfyui",
+    "name": "本地 ComfyUI 文生图",
+    "base_url": "http://127.0.0.1:8188",
+    "api_key": "",
+    "model": ["character-t2i"],
+    "default_model": "character-t2i",
+    "endpoint": "/prompt",
+    "query_endpoint": "/history/{taskId}",
+    "priority": 0,
+    "is_default": true,
+    "is_active": true,
+    "settings": "{\"timeout_seconds\":1800,\"poll_interval_ms\":2000,\"free_before_video\":true,\"client_id\":\"localminidrama\"}"
+  },
+  {
+    "service_type": "storyboard_image",
+    "provider": "comfyui",
+    "api_protocol": "comfyui",
+    "name": "本地 ComfyUI 分镜图",
+    "base_url": "http://127.0.0.1:8188",
+    "api_key": "",
+    "model": ["storyboard-i2i"],
+    "default_model": "storyboard-i2i",
+    "endpoint": "/prompt",
+    "query_endpoint": "/history/{taskId}",
+    "priority": 0,
+    "is_default": true,
+    "is_active": true,
+    "settings": "{\"timeout_seconds\":1800,\"poll_interval_ms\":2000,\"free_before_video\":true,\"client_id\":\"localminidrama\"}"
+  },
+  {
+    "service_type": "video",
+    "provider": "comfyui",
+    "api_protocol": "comfyui",
+    "name": "本地 ComfyUI 图生视频",
+    "base_url": "http://127.0.0.1:8188",
+    "api_key": "",
+    "model": ["storyboard-i2v"],
+    "default_model": "storyboard-i2v",
+    "endpoint": "/prompt",
+    "query_endpoint": "/history/{taskId}",
+    "priority": 0,
+    "is_default": true,
+    "is_active": true,
+    "settings": "{\"timeout_seconds\":3600,\"poll_interval_ms\":2000,\"free_before_video\":true,\"client_id\":\"localminidrama\"}"
+  }
+]

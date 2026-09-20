@@ -51,6 +51,12 @@ function createApp() {
   try {
     if (!fs.existsSync(storageRoot)) fs.mkdirSync(storageRoot, { recursive: true });
     app.use('/static', express.static(storageRoot));
+    try {
+      const wfStore = require('./protocols/comfyui/workflowStore');
+      wfStore.ensureWorkflowsDir({ storage_local_path: storageRoot });
+    } catch (e) {
+      console.warn('comfy-workflows mkdir skipped:', e.message);
+    }
   } catch (e) {
     console.warn('Static storage mount skipped:', e.message);
   }

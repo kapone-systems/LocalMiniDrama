@@ -27,8 +27,8 @@
     </div>
     <div v-if="selected" class="pack-apply">
       <el-form label-position="top">
-        <el-form-item :label="selected.title + ' API Key'" required>
-          <el-input v-model="apiKey" type="password" show-password placeholder="sk-…" />
+        <el-form-item :label="selected.title + ' API Key'" :required="selected.needsApiKey !== false">
+          <el-input v-model="apiKey" type="password" show-password :placeholder="selected.needsApiKey === false ? '本地服务可留空' : 'sk-…'" />
         </el-form-item>
         <el-form-item v-if="selected.needsBaseUrl" label="网关 Base URL" required>
           <el-input v-model="baseUrl" :placeholder="selected.defaultBaseUrl || 'http://127.0.0.1:8000'" />
@@ -37,7 +37,7 @@
     </div>
     <template #footer>
       <el-button @click="$emit('update:modelValue', false)">取消</el-button>
-      <el-button type="primary" :disabled="!selected || !apiKey.trim()" :loading="saving" @click="apply">
+      <el-button type="primary" :disabled="!canApply" :loading="saving" @click="apply">
         创建 {{ selected ? resolvePackConfigs(selected).length : 0 }} 条配置
       </el-button>
     </template>
@@ -45,7 +45,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { aiAPI } from '@/api/ai'
 import { PRESET_PACKS, PACK_GROUPS, resolvePackConfigs } from '@/ai-config/packs.js'
@@ -58,6 +58,14 @@ const apiKey = ref('')
 const baseUrl = ref('')
 const saving = ref(false)
 
+const canApply = computed(() => {
+  const pack = selected.value
+  if (!pack) return false
+  if (pack.needsApiKey !== false && !apiKey.value.trim()) return false
+  if (pack.needsBaseUrl && !(baseUrl.value || pack.defaultBaseUrl || '').trim()) return false
+  return true
+})
+
 watch(selected, (p) => {
   baseUrl.value = p?.defaultBaseUrl || ''
 })
@@ -69,7 +77,8 @@ function packsByGroup(id) {
 async function apply() {
   const pack = selected.value
   const key = apiKey.value.trim()
-  if (!pack || !key) return
+  if (!pack) return
+  if (pack.needsApiKey !== false && !key) return
   const rows = resolvePackConfigs(pack)
   if (!rows.length) {
     ElMessage.warning('该预设没有可导入的配置')

@@ -95,6 +95,9 @@ function setupRouter(cfg, db, log) {
   r.get('/ai-configs', aiConfig.list);
   r.post('/ai-configs', aiConfig.create);
   r.post('/ai-configs/test', aiConfig.testConnection);
+  r.get('/ai-configs/comfy-workflows', aiConfig.listComfyWorkflows);
+  r.post('/ai-configs/comfy-workflows', aiConfig.importComfyWorkflowMulter, aiConfig.importComfyWorkflow);
+  r.delete('/ai-configs/comfy-workflows/:name', aiConfig.deleteComfyWorkflow);
   r.post('/ai-configs/jimeng2-list-assets', aiConfig.listJimeng2MaterialAssets);
   r.post('/ai-configs/model-ark-asset', aiConfig.modelArkAsset);
   r.get('/ai-configs/vendor-lock', aiConfig.vendorLock);  // 必须在 /:id 之前
