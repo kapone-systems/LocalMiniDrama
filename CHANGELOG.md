@@ -2,10 +2,10 @@
 
 所有版本的重要改动记录在此文件中，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
-**本仓库（grok2api 结合版）：**
+**本仓库（LocalMiniDrama 修改版）：**
 [![GitHub](https://img.shields.io/badge/GitHub-kapone--systems%2FLocalMiniDrama-181717?logo=github)](https://github.com/kapone-systems/LocalMiniDrama)
 
-> 本仓库是 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) 与 [grok2api](https://github.com/chenyme/grok2api) 的结合版。
+> 本仓库是上游 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) 的二次开发修改版（含 grok2api、本地 ComfyUI 等能力）。
 > 1.2.8 及更早的条目记录的是**上游原项目**的历史，版权归原作者所有。
 
 ---
@@ -18,6 +18,7 @@
 - **协议注册表**：图/视频新增可插拔协议族，覆盖 APIMart 任务中心、硅基流动、OpenRouter、Fal/Wavespeed、Replicate、PiAPI、Kie、Novita、海螺 02/2.3、OpenAI 官方 Sora JSON、即梦官方、PixVerse、SkyReels、Runway、Luma、Pika、Ideogram、Midjourney Imagine、智谱清影、腾讯混元、百度千帆、讯飞星火、RunningHub。显式 `api_protocol` 不会再被 grok-imagine 误判成 grok2api。
 - **AI 配置页改版**：类型 chips 过滤、预设画廊（官方 / 中转 / 自建）、导入向导（跳过 stt、统一换 Key、冲突策略）、协议按服务类型分组。
 - **中转站预设**：新增 `各大平台中转站配置/apimart.json`；画廊内置 302 / 飞儿 / 云雾 / n1n / GeekNow / 向量。
+- **本地 ComfyUI**：新增 `api_protocol: comfyui`，直连本机 `127.0.0.1:8188` 做角色/场景文生图、分镜参考图、图生视频；空 Key 可测连接；工作流须为 API 格式，模型名 = JSON 文件名。
 - **按视频模型优化提示词**：图文生视频提交前可按当前模型 Skill 改写（一期 MiniMax H3 官方结构 + 通用兜底）。分镜真源 `video_prompt` 不被覆盖；可在提示词管理编辑 Skill、生成设置关闭该行为、分镜上预览后生成。
 - **视频提示词 Skill 二期**：海螺 / 可灵 I2V / Wan / Seedance 经典填厚官方正文；可灵 Omni 与 Seedance 全能在提交前保真 `@图片N`；可查看并复制本次提交词；改写结果可缓存到分镜。
 
@@ -44,7 +45,7 @@
 
 ## [1.2.9] - 2026-09-18
 
-本版本为 **LocalMiniDrama × grok2api 结合版**的首个独立发布。
+本版本为 **LocalMiniDrama 修改版**的首个独立发布（当时以 grok2api 接入为主）。
 
 ### 新增
 

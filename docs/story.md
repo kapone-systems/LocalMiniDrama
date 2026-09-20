@@ -67,7 +67,7 @@
 如果你也在内容 / 工具 / 短剧 / AI / 游戏开发之间反复横跳，欢迎一起玩、一起改、一起把它变得更强。
 
 > 本篇作者故事与联系方式属于**上游原项目** LocalMiniDrama 的作者。
-> 本仓库是 LocalMiniDrama × grok2api 结合版，问题反馈请提交到本仓库 Issues。
+> 本仓库是 LocalMiniDrama 修改版，问题反馈请提交到本仓库 Issues。
 
 ---
 

@@ -4,7 +4,7 @@
 
 → [项目主页](../README.md) | [快速开始](../docs/quickstart.md) | [AI 配置](../docs/configuration.md) | [版本历史](../docs/changelog.md) | [作者故事](../docs/story.md) | [English](../docs/en.md)
 
-**仓库（grok2api 结合版）：**
+**仓库（LocalMiniDrama 修改版）：**
 [![GitHub](https://img.shields.io/badge/GitHub-kapone--systems%2FLocalMiniDrama-181717?logo=github)](https://github.com/kapone-systems/LocalMiniDrama)
 
 > 遇到问题或有功能建议，欢迎在 [本仓库 Issues](https://github.com/kapone-systems/LocalMiniDrama/issues) 提交反馈。

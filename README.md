@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🎬 本地短剧助手 · grok2api 结合版
+# 🎬 本地短剧助手 · 修改版
 
-**LocalMiniDrama × grok2api 结合版 —— 本地 AI 短剧 & 漫剧生成工具，下载即用，数据不出本机**
+**LocalMiniDrama 修改版 —— 本地 AI 短剧 & 漫剧生成工具，下载即用，数据不出本机**
 
 *基于上游 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) v1.2.8 二次开发*
 
@@ -24,13 +24,14 @@
 
 ## ⚠️ 关于本仓库（请先阅读）
 
-这是 **LocalMiniDrama 与 grok2api 的结合版**，不是原项目本身。与上游的区别：
+这是上游 LocalMiniDrama 的 **二次开发修改版**，不是原项目本身。与上游的区别：
 
-| | 上游原项目 | 本仓库（结合版） |
+| | 上游原项目 | 本仓库（修改版） |
 |---|---|---|
 | 仓库地址 | [xuanyustudio/LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) | [kapone-systems/LocalMiniDrama](https://github.com/kapone-systems/LocalMiniDrama) |
 | 下载方式 | 上游 Releases | **只从本仓库 [Releases](https://github.com/kapone-systems/LocalMiniDrama/releases) 下载** |
 | grok2api 接入 | ❌ 无 | ✅ 图片 / 视频 / 文本协议 |
+| 本地 ComfyUI | ❌ 无 | ✅ 直连本机 8188 生图 / 分镜图 / 视频 |
 | 版本号 | 1.2.8 | 1.3.0 |
 
 **重要：**
@@ -325,7 +326,7 @@ LocalMiniDrama/
 
 ## 💬 联系 & 社区
 
-本项目是 **LocalMiniDrama × grok2api 结合版**，问题反馈与建议请提交到[本仓库 Issues](https://github.com/kapone-systems/LocalMiniDrama/issues)。
+本项目是 **LocalMiniDrama 修改版**，问题反馈与建议请提交到[本仓库 Issues](https://github.com/kapone-systems/LocalMiniDrama/issues)。
 
 原版项目的作者故事与社区入口见上游仓库 [xuanyustudio/LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama)。
 
