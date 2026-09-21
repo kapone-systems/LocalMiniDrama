@@ -7,6 +7,16 @@
     @closed="resetForm"
   >
     <el-form label-position="top" size="default" @submit.prevent="onSubmit">
+      <el-form-item v-if="showEpisodeSelect" label="所属集数" required>
+        <el-select v-model="form.episode_id" placeholder="请选择集数" style="width: 100%">
+          <el-option
+            v-for="ep in episodes"
+            :key="ep.id"
+            :label="ep.title || ('第' + (ep.episode_number || 0) + '集')"
+            :value="ep.id"
+          />
+        </el-select>
+      </el-form-item>
       <template v-if="type === 'storyboard'">
         <el-form-item label="分镜标题">
           <el-input v-model="form.title" placeholder="留空则自动命名" />
@@ -80,6 +90,8 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   type: { type: String, default: 'storyboard' },
   onSubmit: { type: Function, default: null },
+  episodes: { type: Array, default: () => [] },
+  needEpisodeSelect: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:modelValue', 'submit'])
@@ -99,6 +111,7 @@ const form = reactive({
   location: '',
   time: '',
   prompt: '',
+  episode_id: null,
 })
 
 const dialogTitle = computed(() => {
@@ -112,6 +125,11 @@ const dialogTitle = computed(() => {
   return map[props.type] || '新建'
 })
 
+const showEpisodeSelect = computed(() => {
+  if (!props.needEpisodeSelect) return false
+  return ['storyboard', 'character', 'scene', 'prop'].includes(props.type)
+})
+
 function resetForm() {
   form.title = ''
   form.description = ''
@@ -121,12 +139,22 @@ function resetForm() {
   form.location = ''
   form.time = ''
   form.prompt = ''
+  form.episode_id = props.needEpisodeSelect ? ((props.episodes || [])[0]?.id ?? null) : null
   submitting.value = false
 }
 
 watch(() => props.type, () => resetForm())
+watch(() => props.modelValue, (open) => {
+  if (open) {
+    form.episode_id = props.needEpisodeSelect ? ((props.episodes || [])[0]?.id ?? null) : null
+  }
+})
 
 function validate() {
+  if (showEpisodeSelect.value && !form.episode_id) {
+    ElMessage.warning('请先选择集数')
+    return false
+  }
   if (props.type === 'character' || props.type === 'prop') {
     if (!form.name.trim()) {
       ElMessage.warning('请填写名称')

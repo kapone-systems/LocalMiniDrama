@@ -1,4 +1,11 @@
-import { parseCanvasLayout, resolveNodePosition } from './canvasLayout.js'
+import {
+  parseCanvasLayout,
+  resolveNodePosition,
+  SB_GAP_Y,
+  MEDIA_OFFSET_X,
+  MEDIA_GAP_X,
+} from './canvasLayout.js'
+import { parseStoryboardCharacterIds, parseStoryboardPropIds, parseStoryboardSceneId } from './canvasEntityIds.js'
 import { getStoryboardGroupMap, parseWorkflowGroups } from './canvasWorkflow.js'
 import { assetImageUrl, storyboardImageUrl, storyboardVideoUrl, audioUrl } from './mediaUrl.js'
 import {
@@ -17,9 +24,6 @@ const ASSET_SECTION_GAP = 36
 const ASSET_ROW_H = 188
 const PIPELINE_X = 360
 const EPISODE_ROW_GAP = 48
-const SB_GAP_Y = 280
-const MEDIA_OFFSET_X = 228
-const MEDIA_GAP_X = 188
 /** 单行流水线（分镜 + 媒体）大致宽度，用于画布 bounds */
 const SB_PIPELINE_WIDTH = MEDIA_OFFSET_X + 5 * MEDIA_GAP_X + 200
 
@@ -404,7 +408,7 @@ function buildEpisodePipeline(episode, savedLayout, startY, options = {}) {
       })
     }
 
-    const charIds = Array.isArray(sb.characters) ? sb.characters : []
+    const charIds = parseStoryboardCharacterIds(sb)
     for (const charId of charIds) {
       const source = `char:${charId}`
       edges.push(makeEdge({
@@ -415,16 +419,17 @@ function buildEpisodePipeline(episode, savedLayout, startY, options = {}) {
       }))
     }
 
-    if (sb.scene_id) {
+    const sceneId = parseStoryboardSceneId(sb)
+    if (sceneId) {
       edges.push(makeEdge({
-        id: `e-scene-${sb.scene_id}-sb-${sb.id}`,
-        source: `scene:${sb.scene_id}`,
+        id: `e-scene-${sceneId}-sb-${sb.id}`,
+        source: `scene:${sceneId}`,
         target: sbId,
         style: ASSET_EDGE_STYLE,
       }))
     }
 
-    const propIds = Array.isArray(sb.prop_ids) ? sb.prop_ids : []
+    const propIds = parseStoryboardPropIds(sb)
     for (const propId of propIds) {
       edges.push(makeEdge({
         id: `e-prop-${propId}-sb-${sb.id}`,
@@ -555,9 +560,9 @@ export function getAssetRelationHighlight(drama, assetNodeId) {
   for (const ep of drama.episodes || []) {
     for (const sb of ep.storyboards || []) {
       let linked = false
-      if (prefix === 'char' && (sb.characters || []).includes(entityId)) linked = true
-      if (prefix === 'scene' && sb.scene_id === entityId) linked = true
-      if (prefix === 'prop' && (sb.prop_ids || []).includes(entityId)) linked = true
+      if (prefix === 'char' && parseStoryboardCharacterIds(sb).includes(entityId)) linked = true
+      if (prefix === 'scene' && parseStoryboardSceneId(sb) === entityId) linked = true
+      if (prefix === 'prop' && parseStoryboardPropIds(sb).includes(entityId)) linked = true
       if (!linked) continue
 
       const sbId = `sb:${sb.id}`

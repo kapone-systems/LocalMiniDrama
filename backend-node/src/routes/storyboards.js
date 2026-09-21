@@ -258,6 +258,17 @@ function routes(db, log) {
         response.internalError(res, err.message);
       }
     },
+    swapWith: (req, res) => {
+      try {
+        const result = storyboardService.swapStoryboardNumbers(db, log, req.params.id, req.params.otherId);
+        if (!result) return response.notFound(res, '分镜不存在');
+        response.success(res, result);
+      } catch (err) {
+        if (err.code === 'BAD_REQUEST') return response.badRequest(res, err.message);
+        log.error('storyboards swapWith', { error: err.message });
+        response.internalError(res, err.message);
+      }
+    },
     getOne: (req, res) => {
       try {
         const sb = storyboardService.getStoryboardById(db, req.params.id);

@@ -7,13 +7,20 @@
       @mousedown.stop
       @contextmenu.prevent
     >
-      <div class="ctx-title">在此添加</div>
-      <button type="button" class="ctx-item" @click="pick('storyboard')">分镜</button>
-      <button type="button" class="ctx-item" @click="pick('character')">角色</button>
-      <button type="button" class="ctx-item" @click="pick('scene')">场景</button>
-      <button type="button" class="ctx-item" @click="pick('prop')">道具</button>
-      <div class="ctx-divider" />
-      <button type="button" class="ctx-item" @click="pick('episode')">新集</button>
+      <template v-if="mode === 'storyboard'">
+        <div class="ctx-title">分镜</div>
+        <button type="button" class="ctx-item" @click="pick('insert-before')">在前方插入</button>
+        <button type="button" class="ctx-item" @click="pick('insert-after')">在后方追加</button>
+      </template>
+      <template v-else>
+        <div class="ctx-title">在此添加</div>
+        <button type="button" class="ctx-item" @click="pick('storyboard')">分镜</button>
+        <button type="button" class="ctx-item" @click="pick('character')">角色</button>
+        <button type="button" class="ctx-item" @click="pick('scene')">场景</button>
+        <button type="button" class="ctx-item" @click="pick('prop')">道具</button>
+        <div class="ctx-divider" />
+        <button type="button" class="ctx-item" @click="pick('episode')">新集</button>
+      </template>
     </div>
     <div v-if="visible" class="canvas-context-backdrop" @mousedown="close" @contextmenu.prevent="close" />
   </Teleport>
@@ -24,6 +31,7 @@ const props = defineProps({
   visible: { type: Boolean, default: false },
   x: { type: Number, default: 0 },
   y: { type: Number, default: 0 },
+  mode: { type: String, default: 'pane' },
 })
 
 const emit = defineEmits(['select', 'close'])

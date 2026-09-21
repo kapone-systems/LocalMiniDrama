@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildDramaCanvasGraph } from '../src/utils/dramaCanvasAdapter.js'
+import { buildDramaCanvasGraph, getAssetRelationHighlight } from '../src/utils/dramaCanvasAdapter.js'
 
 function classicFixture(extraSb = {}) {
   return {
@@ -120,4 +120,23 @@ test('collapsed episode keeps stub and does not emit storyboard pipeline nodes',
   assert.ok(!ids.includes('sbimg:201'))
   const stub = nodes.find((n) => n.id === 'episode-stub:11')
   assert.equal(stub.data.collapsed, true)
+})
+
+test('character id array draws e-char-*-sb-* and highlight includes the storyboard', () => {
+  const drama = classicFixture()
+  drama.characters = [{ id: 7, name: 'A' }]
+  drama.episodes[0].storyboards[0].characters = [7]
+  const { edges } = buildDramaCanvasGraph(drama)
+  assert.ok(edges.some((e) => e.id === 'e-char-7-sb-101'))
+  const hl = getAssetRelationHighlight(drama, 'char:7')
+  assert.ok(hl.nodeIds.has('sb:101'))
+  assert.ok(hl.edgeIds.has('e-char-7-sb-101'))
+})
+
+test('character object array also draws dashed relation edges', () => {
+  const drama = classicFixture()
+  drama.characters = [{ id: 7, name: 'A' }]
+  drama.episodes[0].storyboards[0].characters = [{ id: 7, name: 'A' }]
+  const { edges } = buildDramaCanvasGraph(drama)
+  assert.ok(edges.some((e) => e.id === 'e-char-7-sb-101'))
 })

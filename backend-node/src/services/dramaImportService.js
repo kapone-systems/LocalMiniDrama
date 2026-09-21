@@ -14,6 +14,65 @@ function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
+function rememberOriginal(map, originalId, newId) {
+  const old = Number(originalId);
+  const next = Number(newId);
+  if (!Number.isFinite(old) || !Number.isFinite(next)) return;
+  map.set(old, next);
+}
+
+function remapLayoutNodeKey(key, maps) {
+  if (!key || typeof key !== 'string') return key;
+  const rules = [
+    [/^sb:(\d+)$/, 'sb', (id) => `sb:${id}`],
+    [/^sbtxt:(\d+)$/, 'sb', (id) => `sbtxt:${id}`],
+    [/^sbuni:(\d+)$/, 'sb', (id) => `sbuni:${id}`],
+    [/^sbimg:(\d+)$/, 'sb', (id) => `sbimg:${id}`],
+    [/^sbimg-first:(\d+)$/, 'sb', (id) => `sbimg-first:${id}`],
+    [/^sbimg-last:(\d+)$/, 'sb', (id) => `sbimg-last:${id}`],
+    [/^sbvid:(\d+)$/, 'sb', (id) => `sbvid:${id}`],
+    [/^sbaud:(\d+):(.*)$/, 'sb', (id, m) => `sbaud:${id}:${m[2]}`],
+    [/^char:(\d+)$/, 'char', (id) => `char:${id}`],
+    [/^scene:(\d+)$/, 'scene', (id) => `scene:${id}`],
+    [/^prop:(\d+)$/, 'prop', (id) => `prop:${id}`],
+    [/^episode:(\d+)$/, 'episode', (id) => `episode:${id}`],
+    [/^episode-stub:(\d+)$/, 'episode', (id) => `episode-stub:${id}`],
+    [/^script:(\d+)$/, 'episode', (id) => `script:${id}`],
+    [/^add:storyboard:(\d+)$/, 'episode', (id) => `add:storyboard:${id}`],
+  ];
+  for (const [re, kind, build] of rules) {
+    const m = key.match(re);
+    if (!m) continue;
+    const oldId = Number(m[1]);
+    const mapped = maps[kind] && maps[kind].get(oldId);
+    if (mapped == null) return key;
+    return build(mapped, m);
+  }
+  return key;
+}
+
+function remapCanvasMetadata(metadata, maps) {
+  if (!metadata || typeof metadata !== 'object') return metadata;
+  const meta = { ...metadata };
+  if (meta.canvas_layout && meta.canvas_layout.nodes && typeof meta.canvas_layout.nodes === 'object') {
+    const nodes = {};
+    for (const [key, pos] of Object.entries(meta.canvas_layout.nodes)) {
+      nodes[remapLayoutNodeKey(key, maps)] = pos;
+    }
+    meta.canvas_layout = { ...meta.canvas_layout, nodes };
+  }
+  if (Array.isArray(meta.workflow_groups)) {
+    meta.workflow_groups = meta.workflow_groups.map((g) => ({
+      ...g,
+      storyboard_ids: (g.storyboard_ids || []).map((id) => {
+        const mapped = maps.sb.get(Number(id));
+        return mapped != null ? mapped : id;
+      }),
+    }));
+  }
+  return meta;
+}
+
 /**
  * 解析 ZIP Buffer，返回 project.json 内容和媒体文件 Map
  * @returns {{ data: object, files: Map<string,Buffer> }}
@@ -169,6 +228,13 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
     now
   );
   const dramaId = dramaInfo.lastInsertRowid;
+  const idMaps = {
+    sb: new Map(),
+    char: new Map(),
+    scene: new Map(),
+    prop: new Map(),
+    episode: new Map(),
+  };
   const projectDir = storageLayout.buildProjectRelativeDir({
     id: dramaId,
     title,
@@ -188,6 +254,7 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(dramaId, c.name, c.role || null, c.description || null, c.personality || null, c.appearance || null, c.voice_style || null, c.polished_prompt || null, localPath, extraImagesJson, i, now, now);
     charNewIds.push(info.lastInsertRowid);
+    rememberOriginal(idMaps.char, c.original_id, info.lastInsertRowid);
   }
 
   // ---- 导入剧集（先建好所有集，再关联角色/场景/道具） ----
@@ -198,6 +265,7 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(dramaId, ep.episode_number || 1, ep.title || `第${ep.episode_number || 1}集`, ep.description || null, ep.script_content || null, ep.duration || 0, now, now);
     episodeIdList.push(epInfo.lastInsertRowid);
+    rememberOriginal(idMaps.episode, ep.original_id, epInfo.lastInsertRowid);
   }
 
   // ---- 关联角色到所有集（episode_characters） ----
@@ -220,6 +288,7 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
     if (sceneDedupeMap.has(dedupeKey)) {
       // 同 location+time 已存在，直接复用，不重复插入
       sceneNewIds.push(sceneDedupeMap.get(dedupeKey));
+      rememberOriginal(idMaps.scene, s.original_id, sceneDedupeMap.get(dedupeKey));
       continue;
     }
     const epIdx = s.episode_index;
@@ -234,6 +303,7 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
     ).run(dramaId, epId, s.location || '', s.time || '', s.prompt || '', s.polished_prompt || null, localPath, extraImagesJson, now, now);
     sceneNewIds.push(info.lastInsertRowid);
     sceneDedupeMap.set(dedupeKey, info.lastInsertRowid);
+    rememberOriginal(idMaps.scene, s.original_id, info.lastInsertRowid);
   }
 
   // ---- 导入道具（带 episode_id） ----
@@ -251,6 +321,7 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(dramaId, epId, p.name, p.type || null, p.description || null, p.prompt || null, localPath, extraImagesJson, now, now);
     propNewIds.push(pInfo.lastInsertRowid);
+    rememberOriginal(idMaps.prop, p.original_id, pInfo.lastInsertRowid);
   }
 
   // ---- 导入分镜 ----
@@ -345,6 +416,7 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
          VALUES (${sbCols.map(() => '?').join(', ')})`
       ).run(...sbVals);
       const sbId = sbInfo.lastInsertRowid;
+      rememberOriginal(idMaps.sb, sb.original_id, sbId);
 
       // 还原 storyboard_props（分镜与道具的关联）
       if (sbPropNewIds.length > 0) {
@@ -451,6 +523,19 @@ function _doImport(db, storagePath, files, data, d, title, metaStr, now, log) {
       restoreFramePromptsFromImageGens(db, sbId, now2, log);
     }
   }
+
+  const remapped = remapCanvasMetadata(
+    typeof d.metadata === 'string'
+      ? (() => { try { return JSON.parse(d.metadata); } catch (_) { return {}; } })()
+      : (d.metadata || {}),
+    idMaps,
+  );
+  remapped.storage_folder_label = storageLayout.sanitizeFolderLabel(title);
+  db.prepare('UPDATE dramas SET metadata = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(remapped),
+    now,
+    dramaId,
+  );
 
   log.info('Drama imported', { drama_id: dramaId, title });
   return { drama_id: dramaId, title };

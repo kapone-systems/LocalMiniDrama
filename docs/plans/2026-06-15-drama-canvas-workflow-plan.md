@@ -283,3 +283,4 @@ backend-node/src/services/
 
 - [ ] 分镜参考图自由上传（列表模式已有部分能力，画布侧统一入口）
 - [ ] 参考图自由选择（生成分镜图时手动指定角色/场景参考）
+- [ ] **列表 ↔ 画布双向**：共享客户端 drama 文档、统一 mutation、列表增删写入画布落点。见 [2026-09-21-list-canvas-bidirectional.md](./2026-09-21-list-canvas-bidirectional.md)

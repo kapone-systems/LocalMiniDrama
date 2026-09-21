@@ -1,3 +1,9 @@
+/** 与 dramaCanvasAdapter 同源的落点间距，禁止在其它文件再写一套魔数 */
+export const SB_GAP_Y = 280
+export const MEDIA_OFFSET_X = 228
+export const MEDIA_GAP_X = 188
+export const MEDIA_Y_OFFSET = 8
+
 /** 从 drama.metadata 解析画布布局（旧 JSON 无此字段时返回 null） */
 export function parseCanvasLayout(metadata) {
   if (metadata == null) return null
