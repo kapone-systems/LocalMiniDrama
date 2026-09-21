@@ -265,9 +265,36 @@ function insertBeforeStoryboard(db, log, targetId) {
   return getStoryboardById(db, info.lastInsertRowid);
 }
 
+/** 交换同一集两镜的 storyboard_number（上移/下移） */
+function swapStoryboardNumbers(db, log, idA, idB) {
+  const a = db.prepare(
+    'SELECT id, episode_id, storyboard_number FROM storyboards WHERE id = ? AND deleted_at IS NULL'
+  ).get(Number(idA));
+  const b = db.prepare(
+    'SELECT id, episode_id, storyboard_number FROM storyboards WHERE id = ? AND deleted_at IS NULL'
+  ).get(Number(idB));
+  if (!a || !b) return null;
+  if (Number(a.episode_id) !== Number(b.episode_id)) {
+    const err = new Error('只能交换同一集的分镜');
+    err.code = 'BAD_REQUEST';
+    throw err;
+  }
+  const now = new Date().toISOString();
+  const run = db.transaction(() => {
+    const tmp = -Math.abs(Number(a.id)) - 1;
+    db.prepare('UPDATE storyboards SET storyboard_number = ?, updated_at = ? WHERE id = ?').run(tmp, now, a.id);
+    db.prepare('UPDATE storyboards SET storyboard_number = ?, updated_at = ? WHERE id = ?').run(a.storyboard_number, now, b.id);
+    db.prepare('UPDATE storyboards SET storyboard_number = ?, updated_at = ? WHERE id = ?').run(b.storyboard_number, now, a.id);
+  });
+  run();
+  log.info('Storyboard numbers swapped', { a: a.id, b: b.id });
+  return { a: getStoryboardById(db, a.id), b: getStoryboardById(db, b.id) };
+}
+
 module.exports = {
   createStoryboard,
   insertBeforeStoryboard,
+  swapStoryboardNumbers,
   updateStoryboard,
   deleteStoryboard,
   getStoryboardById,

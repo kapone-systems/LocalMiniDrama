@@ -256,6 +256,7 @@
             @node-click="onNodeClick"
             @pane-click="onPaneClick"
             @pane-context-menu="onPaneContextMenu"
+            @node-context-menu="onNodeContextMenu"
             @node-drag-start="onNodeDragStart"
             @node-drag-stop="scheduleLayoutSave"
             @viewport-change="onViewportChange"
@@ -293,12 +294,15 @@
     <CanvasCreateDialog
       v-model="createDialogVisible"
       :type="createDialogType"
+      :episodes="drama?.episodes || []"
+      :need-episode-select="needCreateEpisodeSelect"
       :on-submit="onCreateSubmit"
     />
     <CanvasContextMenu
       :visible="contextMenuVisible"
       :x="contextMenuX"
       :y="contextMenuY"
+      :mode="contextMenuMode"
       @select="onContextMenuSelect"
       @close="closeContextMenu"
     />
@@ -309,6 +313,7 @@
 <script setup>
 import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { VueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { MiniMap } from '@vue-flow/minimap'
@@ -321,6 +326,8 @@ import '@vue-flow/minimap/dist/style.css'
 
 import { dramaAPI } from '@/api/drama'
 import { taskAPI } from '@/api/task'
+import { useFilmStore } from '@/stores/film'
+import { useDramaMutations } from '@/composables/useDramaMutations'
 import AppHeader from '@/components/AppHeader.vue'
 import { runImageStep, runVideoStep, runAudioStep } from '@/composables/useCanvasWorkflowRunner'
 import { CANVAS_CONTEXT_KEY } from '@/composables/useCanvasContext'
@@ -389,10 +396,12 @@ import CanvasGroupFrameNode from '@/components/dramaCanvas/CanvasGroupFrameNode.
 
 const route = useRoute()
 const router = useRouter()
+const store = useFilmStore()
+const { drama } = storeToRefs(store)
+const mutations = useDramaMutations()
 const { imagesBySbId, videosBySbId, loadForDrama } = useCanvasStoryboardMedia()
 
 const loading = ref(false)
-const drama = ref(null)
 const nodes = ref([])
 const edges = ref([])
 const filterEpisodeId = ref(null)
@@ -415,6 +424,8 @@ const contextMenuVisible = ref(false)
 const contextMenuX = ref(0)
 const contextMenuY = ref(0)
 const contextMenuFlowPos = ref(null)
+const contextMenuMode = ref('pane')
+const contextMenuStoryboard = ref(null)
 const paneClickSuppressed = ref(false)
 const nodeStatus = createCanvasNodeStatusStore()
 const aligningNodes = ref(false)
@@ -562,11 +573,19 @@ function setHighlightAsset(assetNodeId) {
   applyHighlight()
 }
 
+async function refreshLocal(preserveFocus = true) {
+  const keepId = preserveFocus ? focusedNodeId.value : null
+  layoutCache.value = parseCanvasLayout(drama.value?.metadata) || layoutCache.value
+  syncWorkflowFromDrama()
+  rebuildGraph()
+  if (keepId) focusedNodeId.value = keepId
+}
+
 async function refreshDrama(preserveFocus = true) {
   const keepId = preserveFocus ? focusedNodeId.value : null
-  await loadDrama(true)
+  await store.loadDrama(dramaId.value)
   await loadForDrama(drama.value, filterEpisodeId.value)
-  rebuildGraph()
+  await refreshLocal(false)
   if (keepId) focusedNodeId.value = keepId
 }
 
@@ -619,15 +638,63 @@ function onPaneContextMenu(payload) {
   contextMenuFlowPos.value = flowPos
   contextMenuX.value = event.clientX
   contextMenuY.value = event.clientY
+  contextMenuMode.value = 'pane'
+  contextMenuStoryboard.value = null
   contextMenuVisible.value = true
 }
 
 function closeContextMenu() {
   contextMenuVisible.value = false
   contextMenuFlowPos.value = null
+  contextMenuStoryboard.value = null
+  contextMenuMode.value = 'pane'
 }
 
-function onContextMenuSelect(type) {
+function onNodeContextMenu({ event, node }) {
+  const ev = event?.event || event
+  if (ev?.preventDefault) ev.preventDefault()
+  if (node?.type !== 'canvasStoryboard' || !node.data?.storyboard) return
+  contextMenuMode.value = 'storyboard'
+  contextMenuStoryboard.value = node.data.storyboard
+  contextMenuFlowPos.value = null
+  contextMenuX.value = ev.clientX
+  contextMenuY.value = ev.clientY
+  contextMenuVisible.value = true
+}
+
+async function onContextMenuSelect(type) {
+  if (type === 'insert-before' && contextMenuStoryboard.value) {
+    try {
+      const sb = await mutations.insertStoryboardBefore(contextMenuStoryboard.value)
+      await refreshLocal()
+      if (sb?.id) focusedNodeId.value = `sb:${sb.id}`
+      ElMessage.success('已在前方插入分镜')
+    } catch (e) {
+      ElMessage.error(e?.message || '插入失败')
+    }
+    closeContextMenu()
+    return
+  }
+  if (type === 'insert-after' && contextMenuStoryboard.value) {
+    try {
+      const found = findStoryboardInDrama(drama.value, contextMenuStoryboard.value.id)
+      const boards = [...(found?.episode?.storyboards || [])].sort(
+        (a, b) => (Number(a.storyboard_number) || 0) - (Number(b.storyboard_number) || 0),
+      )
+      const idx = boards.findIndex((s) => Number(s.id) === Number(contextMenuStoryboard.value.id))
+      const nextSb = idx >= 0 ? boards[idx + 1] : null
+      const created = nextSb
+        ? await mutations.insertStoryboardBefore(nextSb)
+        : await mutations.createStoryboard({ episodeId: found?.episode?.id })
+      await refreshLocal()
+      if (created?.id) focusedNodeId.value = `sb:${created.id}`
+      ElMessage.success('已追加分镜')
+    } catch (e) {
+      ElMessage.error(e?.message || '追加失败')
+    }
+    closeContextMenu()
+    return
+  }
   pendingFlowPosition.value = contextMenuFlowPos.value
   openCreateDialog(type, contextMenuFlowPos.value)
   closeContextMenu()
@@ -816,25 +883,11 @@ async function persistCanvasState({ layoutOnly = false, groupsOnly = false } = {
     const meta = parseDramaMetadata(updated.metadata)
     if (meta.canvas_layout) layoutCache.value = meta.canvas_layout
     if (meta.workflow_groups) workflowGroups.value = meta.workflow_groups
-    if (drama.value && updated) {
-      drama.value = {
-        ...drama.value,
-        metadata: updated.metadata,
-        updated_at: updated.updated_at,
-        title: updated.title ?? drama.value.title,
-        style: updated.style ?? drama.value.style,
-        genre: updated.genre ?? drama.value.genre,
-        description: updated.description ?? drama.value.description,
-      }
-      if (Array.isArray(updated.episodes) && updated.episodes.length) {
-        drama.value.episodes = updated.episodes
-      }
-      if (Array.isArray(updated.characters)) drama.value.characters = updated.characters
-      if (Array.isArray(updated.scenes)) drama.value.scenes = updated.scenes
-      if (Array.isArray(updated.props)) drama.value.props = updated.props
-    } else if (updated) {
-      drama.value = updated
-    }
+    const patch = {}
+    if (layoutPayload) patch.canvas_layout = meta.canvas_layout || layoutPayload
+    if (groupsPayload !== undefined) patch.workflow_groups = meta.workflow_groups ?? groupsPayload
+    if (updated?.updated_at) patch.updated_at = updated.updated_at
+    if (Object.keys(patch).length) store.patchMetadata(patch)
     layoutSaveState.value = 'saved'
     layoutDirty.value = false
     if (savedHintTimer) clearTimeout(savedHintTimer)
@@ -860,6 +913,15 @@ const {
   focusedNodeId,
   refreshCanvas,
   persistCanvasState,
+  refreshLocal,
+})
+
+const needCreateEpisodeSelect = computed(() => {
+  const types = ['storyboard', 'character', 'scene', 'prop']
+  if (!types.includes(createDialogType.value)) return false
+  const eps = drama.value?.episodes || []
+  if (eps.length <= 1) return false
+  return !filterEpisodeId.value
 })
 
 const {
@@ -913,11 +975,10 @@ async function deleteFocusedStoryboard() {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
     })
-    const { storyboardsAPI } = await import('@/api/storyboards')
-    await storyboardsAPI.delete(sb.id)
+    await mutations.deleteStoryboard(sb.id)
     focusedNodeId.value = null
     ElMessage.success('分镜已删除')
-    await refreshCanvas()
+    await refreshLocal()
   } catch (e) {
     if (e === 'cancel') return
     if (e?.message) ElMessage.error(e.message)
@@ -984,8 +1045,8 @@ async function loadDrama(silent = false) {
   if (!dramaId.value) return
   if (!silent) loading.value = true
   try {
-    drama.value = await dramaAPI.get(dramaId.value)
-    layoutCache.value = parseCanvasLayout(drama.value.metadata)
+    await store.loadDrama(dramaId.value)
+    layoutCache.value = parseCanvasLayout(drama.value?.metadata)
     syncWorkflowFromDrama()
     const vp = resolveViewport(layoutCache.value)
     currentViewport.value = vp
@@ -1155,7 +1216,12 @@ function stopStatusPoll() {
 
 function goListMode() {
   const query = filterEpisodeId.value ? { episode: String(filterEpisodeId.value) } : {}
-  router.push({ path: `/film/${dramaId.value}`, query })
+  const sbId = focusedStoryboardId.value
+  router.push({
+    path: `/film/${dramaId.value}`,
+    query,
+    hash: sbId ? `#sb-${sbId}` : undefined,
+  })
 }
 
 function navigateToStoryboard(episodeId, storyboardId) {
@@ -1239,6 +1305,21 @@ watch(() => route.params.id, async () => {
 }, { immediate: true })
 
 watch(drama, () => startStatusPoll())
+
+watch(() => store.revision, () => {
+  if (!drama.value) return
+  if (layoutSaveState.value === 'saving') return
+  const parsed = parseCanvasLayout(drama.value.metadata)
+  if (parsed) layoutCache.value = parsed
+  syncWorkflowFromDrama()
+  rebuildGraph()
+})
+
+watch(() => store.mediaEpoch, async () => {
+  if (!drama.value) return
+  await loadForDrama(drama.value, filterEpisodeId.value)
+  rebuildGraph()
+})
 
 function onCanvasContextMenu(event) {
   if (event.target?.closest?.('.vue-flow__node, .canvas-inspector, .canvas-zoom-controls, .canvas-fab, .el-popper')) return

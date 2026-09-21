@@ -20,6 +20,25 @@
         <el-input v-model="form.title" placeholder="分镜标题" @blur="saveMeta" />
       </el-form-item>
 
+      <div class="meta-row">
+        <el-form-item label="模式" class="meta-item">
+          <el-select
+            v-model="form.creation_mode"
+            teleported
+            popper-class="canvas-panel-popper"
+            @visible-change="onSelectVisibleChange"
+            @change="onCreationModeChange"
+          >
+            <el-option label="经典" value="classic" />
+            <el-option label="全能" value="universal" />
+          </el-select>
+        </el-form-item>
+        <div class="move-btns">
+          <el-button size="small" :disabled="!canMoveUp" @click.stop="move('up')">上移</el-button>
+          <el-button size="small" :disabled="!canMoveDown" @click.stop="move('down')">下移</el-button>
+        </div>
+      </div>
+
       <div class="relation-row">
         <el-form-item label="角色" class="rel-item">
           <el-select
@@ -97,6 +116,17 @@
           <el-input-number v-model="form.duration" :min="1" :max="120" controls-position="right" @change="saveMeta" />
         </el-form-item>
       </div>
+
+      <el-form-item label="旁白">
+        <el-input
+          v-model="form.narration"
+          type="textarea"
+          :rows="2"
+          resize="vertical" class="nowheel"
+          placeholder="旁白 / 解说"
+          @blur="saveMeta"
+        />
+      </el-form-item>
 
       <template v-if="isUniversal">
         <el-form-item label="全能词">
@@ -207,6 +237,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { storyboardsAPI } from '@/api/storyboards'
+import { useDramaMutations } from '@/composables/useDramaMutations'
 import { useCanvasContext } from '@/composables/useCanvasContext'
 import { CANVAS_NODE_STATUS_LABELS } from '@/composables/useCanvasNodeStatus'
 import {
@@ -229,6 +260,7 @@ const props = defineProps({
 
 const router = useRouter()
 const ctx = useCanvasContext()
+const mutations = useDramaMutations()
 const saving = ref(false)
 const busyStep = ref('')
 const lastStep = ref('')
@@ -248,16 +280,36 @@ const form = reactive({
   universal_segment_text: '',
   shot_type: '',
   duration: 5,
+  narration: '',
+  creation_mode: 'classic',
 })
 
 const sbNodeId = computed(() => props.nodeId || (props.storyboard?.id ? `sb:${props.storyboard.id}` : ''))
 
-const isUniversal = computed(() => props.storyboard?.creation_mode === 'universal')
+const isUniversal = computed(() => form.creation_mode === 'universal')
 const characters = computed(() => ctx?.drama?.value?.characters || [])
 const scenes = computed(() => ctx?.drama?.value?.scenes || [])
 const propsList = computed(() => ctx?.drama?.value?.props || [])
 const refCandidates = computed(() => collectStoryboardReferenceImages(ctx?.drama?.value, props.storyboard))
 const canRetry = computed(() => !!lastStep.value)
+
+const siblingBoards = computed(() => {
+  const drama = ctx?.drama?.value
+  const epId = props.episodeId
+  const ep = (drama?.episodes || []).find((e) => Number(e.id) === Number(epId))
+    || (drama?.episodes || []).find((e) => (e.storyboards || []).some((s) => Number(s.id) === Number(props.storyboard?.id)))
+  return [...(ep?.storyboards || [])].sort(
+    (a, b) => (Number(a.storyboard_number) || 0) - (Number(b.storyboard_number) || 0),
+  )
+})
+const canMoveUp = computed(() => {
+  const idx = siblingBoards.value.findIndex((s) => Number(s.id) === Number(props.storyboard?.id))
+  return idx > 0
+})
+const canMoveDown = computed(() => {
+  const idx = siblingBoards.value.findIndex((s) => Number(s.id) === Number(props.storyboard?.id))
+  return idx >= 0 && idx < siblingBoards.value.length - 1
+})
 
 const busyLabel = computed(() => {
   const map = ctx?.nodeStatus?.map
@@ -274,6 +326,8 @@ function syncForm(sb) {
   form.universal_segment_text = sb?.universal_segment_text || ''
   form.shot_type = sb?.shot_type || ''
   form.duration = sb?.duration != null ? Number(sb.duration) : 5
+  form.narration = sb?.narration || ''
+  form.creation_mode = sb?.creation_mode === 'universal' ? 'universal' : 'classic'
   characterIds.value = parseStoryboardCharacterIds(sb)
   sceneId.value = parseStoryboardSceneId(sb)
   propIds.value = parseStoryboardPropIds(sb)
@@ -310,12 +364,11 @@ function openListMode() {
 async function onRelationChange() {
   if (!props.storyboard?.id) return
   try {
-    await storyboardsAPI.update(props.storyboard.id, {
+    await mutations.setStoryboardRelations(props.storyboard.id, {
       character_ids: characterIds.value,
       scene_id: sceneId.value,
       prop_ids: propIds.value,
     })
-    await ctx?.refreshDrama?.(true)
   } catch (e) {
     ElMessage.error(e?.message || '关联保存失败')
   }
@@ -324,14 +377,34 @@ async function onRelationChange() {
 async function saveMeta() {
   if (!props.storyboard?.id) return
   try {
-    await storyboardsAPI.update(props.storyboard.id, {
+    await mutations.updateStoryboard(props.storyboard.id, {
       title: form.title.trim() || null,
       shot_type: form.shot_type.trim() || null,
       duration: form.duration ?? 5,
+      narration: form.narration.trim() || null,
     })
-    await ctx?.refreshDrama?.(true)
   } catch (e) {
     ElMessage.error(e?.message || '保存失败')
+  }
+}
+
+async function onCreationModeChange(mode) {
+  if (!props.storyboard?.id) return
+  const next = mode === 'universal' ? 'universal' : 'classic'
+  try {
+    await mutations.updateStoryboard(props.storyboard.id, { creation_mode: next })
+  } catch (e) {
+    form.creation_mode = props.storyboard?.creation_mode === 'universal' ? 'universal' : 'classic'
+    ElMessage.error(e?.message || '切换模式失败')
+  }
+}
+
+async function move(direction) {
+  if (!props.storyboard?.id) return
+  try {
+    await mutations.moveStoryboard(props.storyboard.id, direction)
+  } catch (e) {
+    ElMessage.error(e?.message || '调整顺序失败')
   }
 }
 
@@ -344,17 +417,21 @@ async function persistForm(silent = false) {
         video_prompt: form.video_prompt.trim() || null,
         shot_type: form.shot_type.trim() || null,
         duration: form.duration ?? 5,
+        narration: form.narration.trim() || null,
+        creation_mode: 'universal',
       }
     : {
         title: form.title.trim() || null,
         action: form.action.trim() || null,
         dialogue: form.dialogue.trim() || null,
+        narration: form.narration.trim() || null,
         image_prompt: form.image_prompt.trim() || null,
         video_prompt: form.video_prompt.trim() || null,
         shot_type: form.shot_type.trim() || null,
         duration: form.duration ?? 5,
+        creation_mode: 'classic',
       }
-  await storyboardsAPI.update(props.storyboard.id, payload)
+  await mutations.updateStoryboard(props.storyboard.id, payload)
   if (!silent) ElMessage.success('已保存')
 }
 
@@ -364,7 +441,6 @@ async function saveFields() {
   ctx?.nodeStatus?.set(sbNodeId.value, { step: 'save', message: CANVAS_NODE_STATUS_LABELS.save })
   try {
     await persistForm(false)
-    await ctx?.refreshDrama?.(true)
   } catch (e) {
     ElMessage.error(e?.message || '保存失败')
   } finally {
@@ -381,10 +457,9 @@ async function deleteStoryboard() {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
     })
-    await storyboardsAPI.delete(props.storyboard.id)
+    await mutations.deleteStoryboard(props.storyboard.id)
     ctx?.clearFocusedNode?.()
     ElMessage.success('分镜已删除')
-    await ctx?.refresh?.()
   } catch (e) {
     if (e === 'cancel') return
     ElMessage.error(e?.message || '删除失败')
@@ -595,6 +670,12 @@ function cancelUniStream() {
 }
 .meta-item { flex: 1; min-width: 0; }
 .meta-item.narrow { max-width: 140px; flex: 0 0 140px; }
+.move-btns {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding-top: 4px;
+}
 .text-row-2 {
   display: flex;
   gap: 8px;

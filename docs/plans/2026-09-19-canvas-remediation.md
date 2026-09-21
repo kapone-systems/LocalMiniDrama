@@ -3,7 +3,8 @@
 > 来源：当前 fork 画布能力分析（第五节缺点）  
 > 日期：2026-09-19  
 > 范围：只改 `DramaCanvas` 及其附属 composable / adapter / 节点组件；**不把画布改成可任意接线的 ComfyUI，也不追 Krea/Flora 无限生成画布。**  
-> 真源不变：角色 / 分镜 / 图 / 视频仍走现有表与 `project.json`；画布继续只持久化 `metadata.canvas_layout` 与 `metadata.workflow_groups`。
+> 真源不变：角色 / 分镜 / 图 / 视频仍走现有表与 `project.json`；画布继续只持久化 `metadata.canvas_layout` 与 `metadata.workflow_groups`。  
+> 相关：列表与画布的客户端双向同步见 [2026-09-21-list-canvas-bidirectional.md](./2026-09-21-list-canvas-bidirectional.md)（本整改完成后做；不改变「画布是视图层」）。
 
 ---
 

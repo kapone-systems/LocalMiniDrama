@@ -215,6 +215,7 @@ function exportDrama(db, cfg, log, dramaId) {
     episodes: episodes.map(ep => {
       const sbs = storyboardsByEp[ep.id] || [];
       return {
+        original_id: ep.id,
         episode_number: ep.episode_number,
         title: ep.title,
         description: ep.description,
@@ -250,6 +251,7 @@ function exportDrama(db, cfg, log, dramaId) {
             .filter(idx => idx !== undefined);
 
           return {
+            original_id: sb.id,
             storyboard_number: sb.storyboard_number,
             title: sb.title,
             description: sb.description,
@@ -324,6 +326,7 @@ function exportDrama(db, cfg, log, dramaId) {
         return zipPath;
       });
       return {
+        original_id: c.id,
         name: c.name,
         role: c.role,
         description: c.description,
@@ -344,6 +347,7 @@ function exportDrama(db, cfg, log, dramaId) {
         return zipPath;
       });
       return {
+        original_id: s.id,
         location: s.location,
         time: s.time,
         prompt: s.prompt,
@@ -362,6 +366,7 @@ function exportDrama(db, cfg, log, dramaId) {
         return zipPath;
       });
       return {
+        original_id: p.id,
         name: p.name,
         type: p.type,
         description: p.description,

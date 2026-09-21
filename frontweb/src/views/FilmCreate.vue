@@ -2685,6 +2685,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Setting, Plus, Minus, MagicStick, Upload, Delete, Check, Loading, WarningFilled, User, Box, Picture, Film, VideoCamera, Document, InfoFilled, Refresh, ZoomIn, QuestionFilled, DocumentAdd, Expand, Fold, VideoPlay, Grid, Close } from '@element-plus/icons-vue'
 import AppHeader from '@/components/AppHeader.vue'
 import { useFilmStore } from '@/stores/film'
+import { useDramaMutations } from '@/composables/useDramaMutations'
 import { useGenerationTaskStore, GEN_RESOURCE } from '@/stores/generationTaskStore'
 import { syncGeneratingSetsFromStore, buildEpisodeContext, buildExtractTaskMeta, isEpisodeExtractRunning } from '@/composables/useGenerationTaskSync'
 import { dramaAPI } from '@/api/drama'
@@ -2735,6 +2736,7 @@ import {
 const route = useRoute()
 const router = useRouter()
 const store = useFilmStore()
+const mutations = useDramaMutations()
 const genStore = useGenerationTaskStore()
 const { videoResolution: storeVideoResolution } = storeToRefs(store)
 
@@ -4616,11 +4618,15 @@ function onEpisodeSelect(epId) {
 }
 
 async function loadDrama() {
-  if (!store.dramaId) return
+  const id = store.dramaId || (route.params.id && route.params.id !== 'new' ? Number(route.params.id) : null)
+  if (!id) return
   try {
-    let d = await dramaAPI.get(store.dramaId)
-    d = await backfillDramaStylePromptMetadataIfNeeded(dramaAPI, store.dramaId, d)
-    store.setDrama(d)
+    let d = await store.loadDrama(id)
+    d = await backfillDramaStylePromptMetadataIfNeeded(dramaAPI, id, d)
+    if (d && d !== store.drama) {
+      store.applyServerDrama(d, { replaceMedia: true })
+    }
+    d = store.drama
     // 恢复「故事生成」框的梗概（项目 description 存的是故事梗概）
     storyInput.value = (d.description || '').toString().trim()
     storyStyle.value = (d.metadata && d.metadata.story_style) ? d.metadata.story_style : ''
@@ -4661,10 +4667,55 @@ async function loadDrama() {
     syncStoryboardStateFromEpisode(ep)
     await loadStoryboardMedia()
     await recoverAndSyncEpisodeTasks(ep?.id)
+    await nextTick()
+    const hash = String(route.hash || '')
+    const hm = hash.match(/^#sb-(\d+)/)
+    if (hm) scrollToAnchor('sb-' + hm[1])
   } catch (e) {
     ElMessage.error(e.message || '加载失败')
   }
 }
+
+function isStoryboardFieldFocused() {
+  const el = document.activeElement
+  if (!el) return false
+  const tag = (el.tagName || '').toLowerCase()
+  if (tag !== 'input' && tag !== 'textarea' && !el.isContentEditable) return false
+  return !!el.closest?.('.storyboard-row, .sb-script, .sb-panel, .sb-ctrl-bar')
+}
+
+function resolveEpisodeForSync() {
+  const list = store.drama?.episodes || []
+  const currentId = selectedEpisodeId.value ?? store.currentEpisode?.id
+  if (currentId != null) {
+    const ep = list.find((e) => Number(e.id) === Number(currentId))
+    if (ep) return ep
+  }
+  return store.currentEpisode
+}
+
+let pendingBlurSync = null
+watch(() => store.revision, () => {
+  const ep = resolveEpisodeForSync()
+  if (!ep) return
+  if (isStoryboardFieldFocused()) {
+    const el = document.activeElement
+    if (pendingBlurSync) el.removeEventListener('blur', pendingBlurSync)
+    pendingBlurSync = () => {
+      el.removeEventListener('blur', pendingBlurSync)
+      pendingBlurSync = null
+      const later = resolveEpisodeForSync()
+      if (later) syncStoryboardStateFromEpisode(later)
+    }
+    el.addEventListener('blur', pendingBlurSync)
+    return
+  }
+  syncStoryboardStateFromEpisode(ep)
+})
+
+watch(() => store.mediaEpoch, () => {
+  loadStoryboardMedia()
+})
 
 const EMPTY_ARR = []
 /** 当前分镜已选角色 id 列表（供 el-select 绑定） */
@@ -4735,7 +4786,7 @@ function setSbPropIds(sbId, v) {
 
 function onStoryboardPropChange(sbId) {
   const ids = sbPropIds.value[sbId] || []
-  storyboardsAPI.update(sbId, { prop_ids: ids }).catch(() => {})
+  mutations.setStoryboardRelations(sbId, { prop_ids: ids }).catch(() => {})
 }
 
 /** 当前分镜选中的场景对象（用于下方缩略图） */
@@ -4765,8 +4816,7 @@ function getSbSelectedProps(sbId) {
 async function onStoryboardCharacterChange(sbId) {
   const ids = sbCharacterIds.value[sbId] || []
   try {
-    await storyboardsAPI.update(sbId, { character_ids: ids })
-    // 首/尾帧提示词保留（含用户手动保存版）；图生时后端会按当前勾选做 sanitize
+    await mutations.setStoryboardRelations(sbId, { character_ids: Array.isArray(ids) ? ids : [] })
   } catch (e) {
     console.warn('[分镜] 保存角色失败', e)
   }
@@ -4778,7 +4828,7 @@ function onLastFrameLayoutLockChange() {
 
 function onStoryboardSceneChange(sbId) {
   const sceneId = sbSceneId.value[sbId] ?? null
-  storyboardsAPI.update(sbId, { scene_id: sceneId }).catch(() => {})
+  mutations.setStoryboardRelations(sbId, { scene_id: sceneId }).catch(() => {})
 }
 
 /** 同镜号多行时只保留 id 最大的一条（与后端 dedupe 一致，避免「影响的分镜」重复 #N） */
@@ -6945,18 +6995,10 @@ async function onAddSingleStoryboard(){
     return
   }
   try {
-    // 获取当前最大序号（仅计算当前集的分镜）
-    const maxNum = (store.storyboards || [])
-      .filter(sb => sb.episode_id === currentEpisodeId.value)
-      .reduce((max, sb) => Math.max(max, sb.storyboard_number || 0), 0)
-    await storyboardsAPI.create({
-      episode_id: currentEpisodeId.value,
-      storyboard_number: maxNum + 1,
-      title: `镜头 ${maxNum + 1}`,
-      description: '',
+    await mutations.createStoryboard({
+      episodeId: currentEpisodeId.value,
     })
     ElMessage.success('添加成功')
-    await loadDrama() // 刷新列表
   } catch (e) {
     ElMessage.error(e.message || '添加失败')
   }
@@ -6969,9 +7011,8 @@ async function onDeleteSingleStoryboard(id){
       cancelButtonText: '取消',
       type: 'warning'
     })
-    await storyboardsAPI.delete(id)
+    await mutations.deleteStoryboard(id)
     ElMessage.success('删除成功')
-    await loadDrama() // 刷新列表
   } catch (e) {
     if (e !== 'cancel') {
       ElMessage.error(e.message || '删除失败')
@@ -6981,9 +7022,8 @@ async function onDeleteSingleStoryboard(id){
 
 async function onInsertStoryboardBefore(sb) {
   try {
-    await storyboardsAPI.insertBefore(sb.id)
+    await mutations.insertStoryboardBefore(sb)
     ElMessage.success('已在此位置前新增空白分镜')
-    await loadDrama()
   } catch (e) {
     ElMessage.error(e.message || '新增失败')
   }
@@ -8249,7 +8289,13 @@ onBeforeUnmount(() => {
 function applyRouteToStore() {
   const id = route.params.id
   if (id && id !== 'new') {
-    store.setDrama({ id: Number(id) })
+    const nid = Number(id)
+    if (Number(store.dramaId) !== nid) {
+      store.reset()
+      store.setDrama({ id: nid })
+    } else if (!store.dramaId) {
+      store.setDrama({ id: nid })
+    }
     if (route.query.episode) {
       selectedEpisodeId.value = Number(route.query.episode)
     }
