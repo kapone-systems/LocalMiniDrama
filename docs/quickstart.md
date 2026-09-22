@@ -37,8 +37,8 @@
 
    **Linux x64**
 
-   - `LocalMiniDrama-x.x.x-linux-x64.AppImage` — `chmod +x` 后运行
-   - `LocalMiniDrama-x.x.x-linux-x64.deb` — `sudo apt install ./LocalMiniDrama-x.x.x-linux-x64.deb`
+   - `LocalMiniDrama-x.x.x-linux-x86_64.AppImage` — `chmod +x` 后运行
+   - `LocalMiniDrama-x.x.x-linux-amd64.deb` — `sudo apt install ./LocalMiniDrama-x.x.x-linux-amd64.deb`
    - Lite 同样是 AppImage + deb
 
 2. 安装包已内置 ffmpeg / ffprobe。打开后在「AI 配置」填入 API Key。
@@ -180,7 +180,7 @@ npm install
 bash dist-linux.sh
 ```
 
-产物：`LocalMiniDrama-x.x.x-linux-x64.AppImage`、`LocalMiniDrama-x.x.x-linux-x64.deb`，以及对应的 Lite 包。
+产物：`LocalMiniDrama-x.x.x-linux-x86_64.AppImage`、`LocalMiniDrama-x.x.x-linux-amd64.deb`，以及对应的 Lite 包。
 
 **打包原理：**
 

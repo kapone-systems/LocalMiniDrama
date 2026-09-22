@@ -110,8 +110,8 @@ Config: `~/Library/Application Support/localminidrama-desktop/backend/configs/co
 
 **Linux x64**
 
-- `LocalMiniDrama-x.x.x-linux-x64.AppImage` — `chmod +x`, then run
-- `LocalMiniDrama-x.x.x-linux-x64.deb` — `sudo apt install ./LocalMiniDrama-x.x.x-linux-x64.deb`
+- `LocalMiniDrama-x.x.x-linux-x86_64.AppImage` — `chmod +x`, then run
+- `LocalMiniDrama-x.x.x-linux-amd64.deb` — `sudo apt install ./LocalMiniDrama-x.x.x-linux-amd64.deb`
 - Lite uses the same names with `-Lite-`
 
 Config: `~/.config/localminidrama-desktop/backend/configs/config.yaml`

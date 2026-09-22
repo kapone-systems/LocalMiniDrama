@@ -50,7 +50,7 @@
 |------|------|------|
 | Windows | `npm run dist` 或 `npm run dist:cn` | `LocalMiniDrama-Setup-x.x.x.exe`、便携版，以及 Lite |
 | macOS | `bash dist-mac.sh` | `LocalMiniDrama-x.x.x-mac-arm64.dmg`、`...-mac-x64.dmg`，以及 Lite |
-| Linux x64 | `bash dist-linux.sh` | `LocalMiniDrama-x.x.x-linux-x64.AppImage`、`...-linux-x64.deb`，以及 Lite |
+| Linux x64 | `bash dist-linux.sh` | `LocalMiniDrama-x.x.x-linux-x86_64.AppImage`、`...-linux-amd64.deb`，以及 Lite |
 
 GitHub Actions 在 tag `vX.Y.Z` 上会把三端产物上传到同一个 Release 草稿。
 

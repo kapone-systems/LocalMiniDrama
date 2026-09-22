@@ -223,10 +223,10 @@
 
 | 文件 | 说明 |
 |------|------|
-| `LocalMiniDrama-x.x.x-linux-x64.AppImage` | 便携版。`chmod +x` 后直接运行 |
-| `LocalMiniDrama-x.x.x-linux-x64.deb` | Debian / Ubuntu 安装版：`sudo apt install ./LocalMiniDrama-x.x.x-linux-x64.deb` |
-| `LocalMiniDrama-Lite-x.x.x-linux-x64.AppImage` | 精简便携版 |
-| `LocalMiniDrama-Lite-x.x.x-linux-x64.deb` | 精简安装版 |
+| `LocalMiniDrama-x.x.x-linux-x86_64.AppImage` | 便携版。`chmod +x` 后直接运行 |
+| `LocalMiniDrama-x.x.x-linux-amd64.deb` | Debian / Ubuntu 安装版：`sudo apt install ./LocalMiniDrama-x.x.x-linux-amd64.deb` |
+| `LocalMiniDrama-Lite-x.x.x-linux-x86_64.AppImage` | 精简便携版 |
+| `LocalMiniDrama-Lite-x.x.x-linux-amd64.deb` | 精简安装版 |
 
 首次配置：`~/.config/localminidrama-desktop/backend/configs/config.yaml`
 
