@@ -11,4 +11,4 @@
 arm64 和 x64 必须分开打包。`desktop/dist-mac.sh` 会按这个顺序各打一次。
 
 构建 dmg 后，这两个文件会随安装包分发；用户首次启动时自动复制到：
-  ~/Library/Application Support/localminidrama-desktop/backend/tools/ffmpeg/
+  ~/Library/Application Support/DramaDesk/backend/tools/ffmpeg/

@@ -21,7 +21,7 @@ requiredContext:
   - drama_id
   - episode_id
 author: kapone-systems
-homepage: https://github.com/kapone-systems/LocalMiniDrama
+homepage: https://github.com/kapone-systems/DramaDesk
 ---
 
 # LocalMiniDrama 本地短剧助手

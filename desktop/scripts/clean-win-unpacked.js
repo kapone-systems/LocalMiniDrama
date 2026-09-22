@@ -12,7 +12,7 @@ function log(msg) {
 
 function stopWindowsAppProcesses() {
   if (process.platform !== 'win32') return;
-  const names = ['本地短剧助手.exe', 'LocalMiniDrama.exe'];
+  const names = ['DramaDesk.exe', '本地短剧助手.exe', 'LocalMiniDrama.exe'];
   for (const name of names) {
     spawnSync('taskkill', ['/F', '/IM', name, '/T'], { stdio: 'ignore', shell: true });
   }

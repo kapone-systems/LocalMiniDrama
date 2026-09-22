@@ -1,45 +1,28 @@
 <div align="center">
 
-# 🎬 本地短剧助手 · 修改版
+# 🎬 短剧工作台 · DramaDesk
 
-**LocalMiniDrama 修改版 —— 本地 AI 短剧 & 漫剧生成工具，下载即用，数据不出本机**
+**本地 AI 短剧与漫剧工作台，下载即用，数据不出本机**
 
-*基于上游 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) v1.2.8 二次开发*
+*基于 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) 二次开发（MIT）*
 
-[![version](https://img.shields.io/badge/version-1.4.1-blue?style=flat-square)](https://github.com/kapone-systems/LocalMiniDrama/releases)
+[![version](https://img.shields.io/badge/version-1.5.0-blue?style=flat-square)](https://github.com/kapone-systems/DramaDesk/releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square)](#-快速开始)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#-项目架构)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/kapone-systems/LocalMiniDrama/pulls)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/kapone-systems/DramaDesk/pulls)
 
 **[English](docs/en.md) · 简体中文**
 
-[![GitHub](https://img.shields.io/badge/GitHub-kapone--systems%2FLocalMiniDrama-181717?logo=github&style=flat-square)](https://github.com/kapone-systems/LocalMiniDrama)
+[![GitHub](https://img.shields.io/badge/GitHub-kapone--systems%2FDramaDesk-181717?logo=github&style=flat-square)](https://github.com/kapone-systems/DramaDesk)
 
-[**⬇️ 下载 Release**](https://github.com/kapone-systems/LocalMiniDrama/releases) · [**🚀 快速开始**](#-快速开始) · [**📖 配置 AI**](docs/configuration.md) · [**🗺 画布文档**](docs/plans/2026-06-15-drama-canvas-workflow-plan.md)
+[**⬇️ 下载 Release**](https://github.com/kapone-systems/DramaDesk/releases) · [**🚀 快速开始**](#-快速开始) · [**📖 配置 AI**](docs/configuration.md) · [**🗺 画布文档**](docs/plans/2026-06-15-drama-canvas-workflow-plan.md)
 
 </div>
 
 ---
 
-## ⚠️ 关于本仓库（请先阅读）
-
-这是上游 LocalMiniDrama 的 **二次开发修改版**，不是原项目本身。与上游的区别：
-
-| | 上游原项目 | 本仓库（修改版） |
-|---|---|---|
-| 仓库地址 | [xuanyustudio/LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) | [kapone-systems/LocalMiniDrama](https://github.com/kapone-systems/LocalMiniDrama) |
-| 下载方式 | 上游 Releases | **只从本仓库 [Releases](https://github.com/kapone-systems/LocalMiniDrama/releases) 下载** |
-| grok2api 接入 | ❌ 无 | ✅ 图片 / 视频 / 文本协议 |
-| 本地 ComfyUI | ❌ 无 | ✅ 直连本机 8188 生图 / 分镜图 / 视频 |
-| 版本号 | 1.2.8 | 1.4.1 |
-
-**重要：**
-
-1. **下载请认准本仓库的 Releases**，不要使用原项目的下载链接——两者内容不同，版本也不互通。
-2. 使用 grok2api 相关功能，需**自行部署 grok2api 服务**（上游项目：[chenyme/grok2api](https://github.com/chenyme/grok2api)），并配置到你自己的中转地址。协议对接细节见 [grok2api 契约文档](docs/grok2api-contract.md)，实测记录见 [验收文档](docs/grok2api-acceptance.md)。
-3. **原版功能与上游下载请前往上游仓库**。本项目的原版功能全部来自上游，版权归原作者所有（MIT，见 [LICENSE](LICENSE)）。
-4. 本项目的问题反馈请提交到[本仓库 Issues](https://github.com/kapone-systems/LocalMiniDrama/issues)。
+本项目基于 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) 二次开发，原项目版权归原作者所有（MIT，见 [LICENSE](LICENSE)）。
 
 ---
 
@@ -195,40 +178,40 @@
 
 ### 方式一：下载安装包（推荐）
 
-前往 **[本仓库 Releases 下载页](https://github.com/kapone-systems/LocalMiniDrama/releases)**。标准版含示例项目，Lite 不含。
+前往 **[本仓库 Releases 下载页](https://github.com/kapone-systems/DramaDesk/releases)**。标准版含示例项目，Lite 不含。
 
 **Windows**
 
 | 文件 | 说明 |
 |------|------|
-| `LocalMiniDrama-Setup-x.x.x.exe` | 安装版 |
-| `LocalMiniDrama-x.x.x.exe` | 便携版，免安装 |
-| `LocalMiniDrama-Lite-Setup-x.x.x.exe` | 精简安装版 |
-| `LocalMiniDrama-Lite-x.x.x.exe` | 精简便携版 |
+| `DramaDesk-Setup-x.x.x.exe` | 安装版 |
+| `DramaDesk-x.x.x.exe` | 便携版，免安装 |
+| `DramaDesk-Lite-Setup-x.x.x.exe` | 精简安装版 |
+| `DramaDesk-Lite-x.x.x.exe` | 精简便携版 |
 
-双击运行。首次配置：`%APPDATA%\localminidrama-desktop\backend\configs\config.yaml`
+双击运行。首次配置：`%APPDATA%\DramaDesk\backend\configs\config.yaml`
 
 **macOS**（未签名，首次打开若被拦截：右键 → 打开，或在「隐私与安全性」里允许）
 
 | 文件 | 说明 |
 |------|------|
-| `LocalMiniDrama-x.x.x-mac-arm64.dmg` | Apple Silicon 标准版 |
-| `LocalMiniDrama-x.x.x-mac-x64.dmg` | Intel 标准版 |
-| `LocalMiniDrama-Lite-x.x.x-mac-arm64.dmg` | Apple Silicon 精简版 |
-| `LocalMiniDrama-Lite-x.x.x-mac-x64.dmg` | Intel 精简版 |
+| `DramaDesk-x.x.x-mac-arm64.dmg` | Apple Silicon 标准版 |
+| `DramaDesk-x.x.x-mac-x64.dmg` | Intel 标准版 |
+| `DramaDesk-Lite-x.x.x-mac-arm64.dmg` | Apple Silicon 精简版 |
+| `DramaDesk-Lite-x.x.x-mac-x64.dmg` | Intel 精简版 |
 
-打开 DMG，把 App 拖进「应用程序」。首次配置：`~/Library/Application Support/localminidrama-desktop/backend/configs/config.yaml`
+打开 DMG，把 App 拖进「应用程序」。首次配置：`~/Library/Application Support/DramaDesk/backend/configs/config.yaml`
 
 **Linux x64**
 
 | 文件 | 说明 |
 |------|------|
-| `LocalMiniDrama-x.x.x-linux-x86_64.AppImage` | 便携版。`chmod +x` 后直接运行 |
-| `LocalMiniDrama-x.x.x-linux-amd64.deb` | Debian / Ubuntu 安装版：`sudo apt install ./LocalMiniDrama-x.x.x-linux-amd64.deb` |
-| `LocalMiniDrama-Lite-x.x.x-linux-x86_64.AppImage` | 精简便携版 |
-| `LocalMiniDrama-Lite-x.x.x-linux-amd64.deb` | 精简安装版 |
+| `DramaDesk-x.x.x-linux-x86_64.AppImage` | 便携版。`chmod +x` 后直接运行 |
+| `DramaDesk-x.x.x-linux-amd64.deb` | Debian / Ubuntu 安装版：`sudo apt install ./DramaDesk-x.x.x-linux-amd64.deb` |
+| `DramaDesk-Lite-x.x.x-linux-x86_64.AppImage` | 精简便携版 |
+| `DramaDesk-Lite-x.x.x-linux-amd64.deb` | 精简安装版 |
 
-首次配置：`~/.config/localminidrama-desktop/backend/configs/config.yaml`
+首次配置：`~/.config/DramaDesk/backend/configs/config.yaml`
 
 字幕烧录需要中文字体。若汉字变成方框，安装：`sudo apt install fonts-noto-cjk`
 
@@ -239,8 +222,8 @@
 > Node.js ≥ 18
 
 ```bash
-git clone https://github.com/kapone-systems/LocalMiniDrama.git
-cd LocalMiniDrama
+git clone https://github.com/kapone-systems/DramaDesk.git
+cd DramaDesk
 
 # 后端（端口 5679）
 cd backend-node && npm install
@@ -279,7 +262,7 @@ cd frontweb && npm install && npm run dev
 ## 🏗 项目架构
 
 ```
-LocalMiniDrama/
+DramaDesk/
 ├── backend-node/     # Express + SQLite，生成/合成/导入导出
 ├── frontweb/         # Vue 3 + Element Plus + @vue-flow/core
 │   └── views/        # FilmList · DramaDetail · FilmCreate · DramaCanvas
@@ -306,7 +289,7 @@ LocalMiniDrama/
 | 📋 | 参考图自由选择 | 生图时手动指定角色/场景参考 |
 | 📋 | 宫格图生成视频 | 多帧合图作为视频输入（部分模型已支持） |
 
-> 认领功能或提建议 → [New Issue](https://github.com/kapone-systems/LocalMiniDrama/issues/new)
+> 认领功能或提建议 → [New Issue](https://github.com/kapone-systems/DramaDesk/issues/new)
 
 <details>
 <summary><b>📋 更多历史版本亮点（v1.2.3 及更早）</b></summary>
@@ -335,8 +318,8 @@ LocalMiniDrama/
 
 ## 🤝 参与贡献
 
-- 🐛 [报告 Bug](https://github.com/kapone-systems/LocalMiniDrama/issues/new)
-- 💡 [功能建议](https://github.com/kapone-systems/LocalMiniDrama/issues/new)
+- 🐛 [报告 Bug](https://github.com/kapone-systems/DramaDesk/issues/new)
+- 💡 [功能建议](https://github.com/kapone-systems/DramaDesk/issues/new)
 - 🔧 Fork → PR
 - ⭐ **Star** 帮助更多人发现本项目
 
@@ -347,7 +330,7 @@ LocalMiniDrama/
 
 ## 💬 联系 & 社区
 
-本项目是 **LocalMiniDrama 修改版**，问题反馈与建议请提交到[本仓库 Issues](https://github.com/kapone-systems/LocalMiniDrama/issues)。
+本项目基于 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) 二次开发。问题反馈与建议请提交到[本仓库 Issues](https://github.com/kapone-systems/DramaDesk/issues)。
 
 原版项目的作者故事与社区入口见上游仓库 [xuanyustudio/LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama)。
 
@@ -363,6 +346,6 @@ LocalMiniDrama/
 
 **如果这个项目对你有帮助，请点 ⭐ Star —— 这是对作者最大的鼓励！**
 
-[⬇️ 立即下载](https://github.com/kapone-systems/LocalMiniDrama/releases) · [📖 快速开始文档](docs/quickstart.md) · [🗺 画布文档](docs/plans/2026-06-15-drama-canvas-workflow-plan.md)
+[⬇️ 立即下载](https://github.com/kapone-systems/DramaDesk/releases) · [📖 快速开始文档](docs/quickstart.md) · [🗺 画布文档](docs/plans/2026-06-15-drama-canvas-workflow-plan.md)
 
 </div>

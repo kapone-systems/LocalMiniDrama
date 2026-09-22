@@ -1,6 +1,6 @@
 {
-  "appId": "com.localminidrama.desktop",
-  "productName": "LocalMiniDrama",
+  "appId": "com.dramadesk.desktop",
+  "productName": "DramaDesk",
   "directories": {
     "output": "release"
   },
@@ -38,9 +38,9 @@
       { "target": "deb", "arch": ["x64"] }
     ],
     "category": "AudioVideo",
-    "executableName": "LocalMiniDrama",
+    "executableName": "DramaDesk",
     "maintainer": "kapone-systems <noreply@github.com>",
     "synopsis": "Local AI short-drama generator",
-    "artifactName": "LocalMiniDrama-${version}-linux-${arch}.${ext}"
+    "artifactName": "DramaDesk-${version}-linux-${arch}.${ext}"
   }
 }

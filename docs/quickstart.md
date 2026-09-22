@@ -21,24 +21,24 @@
 
 ## 运行方式一：下载安装包（推荐普通用户）
 
-1. 前往 **[Releases](../../releases)** 下载与你的系统对应的包。标准版含示例项目，Lite 不含。文件名里的 `x.x.x` 换成版本号（当前 **1.4.1**）。
+1. 前往 **[Releases](../../releases)** 下载与你的系统对应的包。标准版含示例项目，Lite 不含。文件名里的 `x.x.x` 换成版本号（当前 **1.5.0**）。
 
    **Windows**
 
-   - `LocalMiniDrama-Setup-x.x.x.exe` — 安装版
-   - `LocalMiniDrama-x.x.x.exe` — 便携版
-   - `LocalMiniDrama-Lite-Setup-x.x.x.exe` / `LocalMiniDrama-Lite-x.x.x.exe` — 精简版
+   - `DramaDesk-Setup-x.x.x.exe` — 安装版
+   - `DramaDesk-x.x.x.exe` — 便携版
+   - `DramaDesk-Lite-Setup-x.x.x.exe` / `DramaDesk-Lite-x.x.x.exe` — 精简版
 
    **macOS**（未签名。若提示已损坏或无法打开：右键 App → 打开，或到「系统设置 → 隐私与安全性」允许）
 
-   - `LocalMiniDrama-x.x.x-mac-arm64.dmg` — Apple Silicon
-   - `LocalMiniDrama-x.x.x-mac-x64.dmg` — Intel
+   - `DramaDesk-x.x.x-mac-arm64.dmg` — Apple Silicon
+   - `DramaDesk-x.x.x-mac-x64.dmg` — Intel
    - Lite 文件名中多一段 `-Lite-`
 
    **Linux x64**
 
-   - `LocalMiniDrama-x.x.x-linux-x86_64.AppImage` — `chmod +x` 后运行
-   - `LocalMiniDrama-x.x.x-linux-amd64.deb` — `sudo apt install ./LocalMiniDrama-x.x.x-linux-amd64.deb`
+   - `DramaDesk-x.x.x-linux-x86_64.AppImage` — `chmod +x` 后运行
+   - `DramaDesk-x.x.x-linux-amd64.deb` — `sudo apt install ./DramaDesk-x.x.x-linux-amd64.deb`
    - Lite 同样是 AppImage + deb
 
 2. 安装包已内置 ffmpeg / ffprobe。打开后在「AI 配置」填入 API Key。
@@ -47,9 +47,9 @@
 
    | 系统 | 路径 |
    |------|------|
-   | Windows | `%APPDATA%\localminidrama-desktop\backend\configs\config.yaml` |
-   | macOS | `~/Library/Application Support/localminidrama-desktop/backend/configs/config.yaml` |
-   | Linux | `~/.config/localminidrama-desktop/backend/configs/config.yaml` |
+   | Windows | `%APPDATA%\DramaDesk\backend\configs\config.yaml` |
+   | macOS | `~/Library/Application Support/DramaDesk/backend/configs/config.yaml` |
+   | Linux | `~/.config/DramaDesk/backend/configs/config.yaml` |
 
    Linux 上若烧录字幕的汉字变成方框，安装中文字体：`sudo apt install fonts-noto-cjk`。
 
@@ -153,10 +153,10 @@ npm run dist:cn       # 同上，Electron 走国内镜像，并再打 Lite
 
 产物在 `desktop/release/`：
 
-- `LocalMiniDrama-Setup-x.x.x.exe`
-- `LocalMiniDrama-x.x.x.exe`
-- `LocalMiniDrama-Lite-Setup-x.x.x.exe`（仅 `dist:cn` 或 CI）
-- `LocalMiniDrama-Lite-x.x.x.exe`
+- `DramaDesk-Setup-x.x.x.exe`
+- `DramaDesk-x.x.x.exe`
+- `DramaDesk-Lite-Setup-x.x.x.exe`（仅 `dist:cn` 或 CI）
+- `DramaDesk-Lite-x.x.x.exe`
 
 ### macOS
 
@@ -168,7 +168,7 @@ npm install
 bash dist-mac.sh
 ```
 
-产物：`LocalMiniDrama-x.x.x-mac-arm64.dmg`、`LocalMiniDrama-x.x.x-mac-x64.dmg`，以及对应的 Lite DMG。未签名。
+产物：`DramaDesk-x.x.x-mac-arm64.dmg`、`DramaDesk-x.x.x-mac-x64.dmg`，以及对应的 Lite DMG。未签名。
 
 ### Linux x64
 
@@ -180,7 +180,7 @@ npm install
 bash dist-linux.sh
 ```
 
-产物：`LocalMiniDrama-x.x.x-linux-x86_64.AppImage`、`LocalMiniDrama-x.x.x-linux-amd64.deb`，以及对应的 Lite 包。
+产物：`DramaDesk-x.x.x-linux-x86_64.AppImage`、`DramaDesk-x.x.x-linux-amd64.deb`，以及对应的 Lite 包。
 
 **打包原理：**
 
@@ -225,7 +225,7 @@ AI 服务配置通过软件内「AI 配置」页面管理，无需手动编辑 Y
 |------|------|
 | `backend-node/data/drama_generator.db` | SQLite 数据库（开发模式） |
 | `backend-node/data/storage/` | 生成的图片和视频文件 |
-| `%APPDATA%\localminidrama-desktop\`（macOS / Linux 见上方配置路径表） | 安装包模式下的所有数据 |
+| `%APPDATA%\DramaDesk\`（macOS / Linux 见上方配置路径表） | 安装包模式下的所有数据 |
 
 > ⚠️ 升级版本前建议备份 `data/` 目录；数据库会在启动时自动执行迁移脚本，一般无需手动操作。
 
@@ -270,7 +270,7 @@ npm run dist
 ### Q: 生成的图片/视频保存在哪里？
 
 开发模式：`backend-node/data/storage/`  
-安装包：用户数据目录下的 `backend/data/storage/`（Windows 为 `%APPDATA%\localminidrama-desktop`，macOS 为 `~/Library/Application Support/localminidrama-desktop`，Linux 为 `~/.config/localminidrama-desktop`）
+安装包：用户数据目录下的 `backend/data/storage/`（Windows 为 `%APPDATA%\DramaDesk`，macOS 为 `~/Library/Application Support/DramaDesk`，Linux 为 `~/.config/DramaDesk`）
 
 目录结构：
 ```

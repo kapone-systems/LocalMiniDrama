@@ -2,11 +2,23 @@
 
 所有版本的重要改动记录在此文件中，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
-**本仓库（LocalMiniDrama 修改版）：**
-[![GitHub](https://img.shields.io/badge/GitHub-kapone--systems%2FLocalMiniDrama-181717?logo=github)](https://github.com/kapone-systems/LocalMiniDrama)
+**本仓库（DramaDesk）：**
+[![GitHub](https://img.shields.io/badge/GitHub-kapone--systems%2FDramaDesk-181717?logo=github)](https://github.com/kapone-systems/DramaDesk)
 
-> 本仓库是上游 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) 的二次开发修改版（含 grok2api、本地 ComfyUI 等能力）。
+> 本仓库基于 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) 二次开发。
 > 1.2.8 及更早的条目记录的是**上游原项目**的历史，版权归原作者所有。
+
+---
+
+## [1.5.0] - 2026-09-22
+
+对外名称改为 **DramaDesk / 短剧工作台**。仓库改为 [kapone-systems/DramaDesk](https://github.com/kapone-systems/DramaDesk)。没有功能改动。
+
+### 优化
+
+- 安装包文件名改为 `DramaDesk-*`（Windows exe、macOS dmg、Linux AppImage / deb，含 Lite）。
+- 用户数据目录改为 `DramaDesk`。若本机仍有 `localminidrama-desktop` 或 `LocalMiniDrama` 目录且新目录还不存在，启动时会自动迁过去。
+- 文档里只保留一句：基于 LocalMiniDrama 二次开发。
 
 ---
 

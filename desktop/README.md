@@ -1,10 +1,10 @@
-# LocalMiniDrama 桌面客户端
+# DramaDesk 桌面客户端
 
-基于 Electron 的本地桌面应用，内嵌 `backend-node` 与 `frontweb`。打包后可直接运行。当前版本：**v1.4.1**（Windows exe、macOS dmg、Linux AppImage / deb）。
+基于 Electron 的本地桌面应用，内嵌 `backend-node` 与 `frontweb`。打包后可直接运行。当前版本：**v1.5.0**（Windows exe、macOS dmg、Linux AppImage / deb）。基于 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) 二次开发。
 
 ---
 
-## 主要功能（v1.4.1）
+## 主要功能（v1.5.0）
 
 | 模块 | 功能 |
 |------|------|
@@ -48,9 +48,9 @@
 
 | 系统 | 命令 | 产物 |
 |------|------|------|
-| Windows | `npm run dist` 或 `npm run dist:cn` | `LocalMiniDrama-Setup-x.x.x.exe`、便携版，以及 Lite |
-| macOS | `bash dist-mac.sh` | `LocalMiniDrama-x.x.x-mac-arm64.dmg`、`...-mac-x64.dmg`，以及 Lite |
-| Linux x64 | `bash dist-linux.sh` | `LocalMiniDrama-x.x.x-linux-x86_64.AppImage`、`...-linux-amd64.deb`，以及 Lite |
+| Windows | `npm run dist` 或 `npm run dist:cn` | `DramaDesk-Setup-x.x.x.exe`、便携版，以及 Lite |
+| macOS | `bash dist-mac.sh` | `DramaDesk-x.x.x-mac-arm64.dmg`、`...-mac-x64.dmg`，以及 Lite |
+| Linux x64 | `bash dist-linux.sh` | `DramaDesk-x.x.x-linux-x86_64.AppImage`、`...-linux-amd64.deb`，以及 Lite |
 
 GitHub Actions 在 tag `vX.Y.Z` 上会把三端产物上传到同一个 Release 草稿。
 
@@ -85,9 +85,9 @@ ffmpeg 不入库。脚本会分别调用 `scripts/fetch-ffmpeg-mac.js`、`script
 
 | 系统 | 路径 |
 |------|------|
-| Windows | `%APPDATA%\localminidrama-desktop` |
-| macOS | `~/Library/Application Support/localminidrama-desktop` |
-| Linux | `~/.config/localminidrama-desktop` |
+| Windows | `%APPDATA%\DramaDesk` |
+| macOS | `~/Library/Application Support/DramaDesk` |
+| Linux | `~/.config/DramaDesk` |
 
 ---
 
@@ -114,7 +114,7 @@ ffmpeg 不入库。脚本会分别调用 `scripts/fetch-ffmpeg-mac.js`、`script
 双击运行 exe 时，后端日志会自动写入：
 
 ```
-%APPDATA%\localminidrama-desktop\backend\logs\app.log
+%APPDATA%\DramaDesk\backend\logs\app.log
 ```
 
 用记事本或 VS Code 打开后，点击「AI 生成角色」等按钮，查看是否有对应请求行、报错信息，便于判断是请求未发出、AI 超时还是配置有误。
@@ -122,7 +122,7 @@ ffmpeg 不入库。脚本会分别调用 `scripts/fetch-ffmpeg-mac.js`、`script
 ### 2. 从命令行运行（实时日志）
 
 ```powershell
-& "D:\path\to\release\LocalMiniDrama-1.4.1.exe"
+& "D:\path\to\release\DramaDesk-1.5.0.exe"
 ```
 
 日志会直接打印在终端，操作软件时可实时看到所有输出。
@@ -131,7 +131,7 @@ ffmpeg 不入库。脚本会分别调用 `scripts/fetch-ffmpeg-mac.js`、`script
 
 ```powershell
 $env:LOCALMINIDRAMA_DEVTOOLS=1
-& "D:\path\to\release\LocalMiniDrama-1.4.1.exe"
+& "D:\path\to\release\DramaDesk-1.5.0.exe"
 ```
 
 在 Network 面板查看各 API 请求（如 `POST /api/v1/generation/characters`）是否正常发出和返回。
@@ -141,7 +141,7 @@ $env:LOCALMINIDRAMA_DEVTOOLS=1
 配置文件位于：
 
 ```
-%APPDATA%\localminidrama-desktop\backend\configs\config.yaml
+%APPDATA%\DramaDesk\backend\configs\config.yaml
 ```
 
 AI 相关配置需在软件「AI 配置」弹窗中填写并保存（会写入上述 yaml 文件）；本机网络需能访问对应 API（如 dashscope、volcengine 等）。

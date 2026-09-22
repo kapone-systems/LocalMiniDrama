@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🎬 LocalMiniDrama
+# 🎬 DramaDesk
 
 **A locally-running AI short drama & comic generator — download and run, no cloud required, fully open source**
 
-[![version](https://img.shields.io/badge/version-1.4.1-blue?style=flat-square)](../../releases)
+[![version](https://img.shields.io/badge/version-1.5.0-blue?style=flat-square)](../../releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](../LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square)](#)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#)
@@ -17,7 +17,7 @@
 ---
 
 There are plenty of AI short-drama tools out there, but almost none that truly run **offline locally, work out of the box, and keep your assets private**.  
-This project is built entirely in JavaScript from scratch. Connect your own AI API and start generating your own AI short drama immediately.
+DramaDesk is a local short-drama desk based on [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama). Connect your own AI API and start generating.
 
 > ✅ No subscription · ✅ Data stays local · ✅ Multiple AI providers · ✅ Fully open source
 
@@ -95,26 +95,26 @@ Go to **[Releases](../../releases)**. Standard builds include the example projec
 
 **Windows**
 
-- `LocalMiniDrama-Setup-x.x.x.exe` — installer
-- `LocalMiniDrama-x.x.x.exe` — portable
-- `LocalMiniDrama-Lite-Setup-x.x.x.exe` / `LocalMiniDrama-Lite-x.x.x.exe` — Lite
+- `DramaDesk-Setup-x.x.x.exe` — installer
+- `DramaDesk-x.x.x.exe` — portable
+- `DramaDesk-Lite-Setup-x.x.x.exe` / `DramaDesk-Lite-x.x.x.exe` — Lite
 
-Config: `%APPDATA%\localminidrama-desktop\backend\configs\config.yaml`
+Config: `%APPDATA%\DramaDesk\backend\configs\config.yaml`
 
 **macOS** (unsigned; if Gatekeeper blocks it, right-click → Open)
 
-- `LocalMiniDrama-x.x.x-mac-arm64.dmg` / `LocalMiniDrama-x.x.x-mac-x64.dmg`
-- Lite: `LocalMiniDrama-Lite-x.x.x-mac-arm64.dmg` / `LocalMiniDrama-Lite-x.x.x-mac-x64.dmg`
+- `DramaDesk-x.x.x-mac-arm64.dmg` / `DramaDesk-x.x.x-mac-x64.dmg`
+- Lite: `DramaDesk-Lite-x.x.x-mac-arm64.dmg` / `DramaDesk-Lite-x.x.x-mac-x64.dmg`
 
-Config: `~/Library/Application Support/localminidrama-desktop/backend/configs/config.yaml`
+Config: `~/Library/Application Support/DramaDesk/backend/configs/config.yaml`
 
 **Linux x64**
 
-- `LocalMiniDrama-x.x.x-linux-x86_64.AppImage` — `chmod +x`, then run
-- `LocalMiniDrama-x.x.x-linux-amd64.deb` — `sudo apt install ./LocalMiniDrama-x.x.x-linux-amd64.deb`
+- `DramaDesk-x.x.x-linux-x86_64.AppImage` — `chmod +x`, then run
+- `DramaDesk-x.x.x-linux-amd64.deb` — `sudo apt install ./DramaDesk-x.x.x-linux-amd64.deb`
 - Lite uses the same names with `-Lite-`
 
-Config: `~/.config/localminidrama-desktop/backend/configs/config.yaml`
+Config: `~/.config/DramaDesk/backend/configs/config.yaml`
 
 Burned-in subtitles need a CJK font. If Chinese characters render as boxes: `sudo apt install fonts-noto-cjk`.
 
@@ -126,8 +126,8 @@ Installers bundle ffmpeg / ffprobe. Open **AI Config**, enter an API key, and st
 
 ```bash
 # 1. Clone
-git clone https://github.com/kapone-systems/LocalMiniDrama.git
-cd LocalMiniDrama
+git clone https://github.com/kapone-systems/DramaDesk.git
+cd DramaDesk
 
 # 2. Backend (port 5679)
 cd backend-node
@@ -168,7 +168,7 @@ You can also double-click `run_dev.bat` at the project root to **start both serv
 ## 🏗 Architecture
 
 ```
-LocalMiniDrama/
+DramaDesk/
 ├── backend-node/          # Node.js backend (Express + SQLite)
 │   ├── src/
 │   │   ├── config/        # YAML config loader

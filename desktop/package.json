@@ -1,13 +1,13 @@
 {
   "name": "localminidrama-desktop",
-  "version": "1.4.1",
-  "description": "LocalMiniDrama 本地桌面客户端",
+  "version": "1.5.0",
+  "description": "DramaDesk 本地桌面客户端",
   "main": "main.js",
   "author": "kapone-systems",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kapone-systems/LocalMiniDrama.git"
+    "url": "https://github.com/kapone-systems/DramaDesk.git"
   },
   "scripts": {
     "prestart": "node scripts/copy-backend.js",
@@ -41,9 +41,9 @@
     "electron-builder": "^24.9.1"
   },
   "build": {
-    "appId": "com.localminidrama.desktop",
-    "productName": "本地短剧助手",
-    "artifactName": "LocalMiniDrama-${version}.${ext}",
+    "appId": "com.dramadesk.desktop",
+    "productName": "DramaDesk",
+    "artifactName": "DramaDesk-${version}.${ext}",
     "directories": {
       "output": "release"
     },
@@ -82,7 +82,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "LocalMiniDrama-Setup-${version}.${ext}"
+      "artifactName": "DramaDesk-Setup-${version}.${ext}"
     }
   }
 }

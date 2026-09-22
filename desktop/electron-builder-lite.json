@@ -1,6 +1,6 @@
 {
-  "appId": "com.localminidrama.desktop",
-  "productName": "LocalMiniDrama",
+  "appId": "com.dramadesk.desktop",
+  "productName": "DramaDesk",
   "directories": {
     "output": "release"
   },

@@ -8,7 +8,7 @@ try {
 } catch (_) {}
 
 // 显式固定 userData 目录，使开发模式与打包 exe 路径完全一致，防止 productName 变更导致路径漂移
-const USERDATA_DIR = path.join(app.getPath('appData'), 'localminidrama-desktop');
+const USERDATA_DIR = path.join(app.getPath('appData'), 'DramaDesk');
 app.setPath('userData', USERDATA_DIR);
 
 const MAIN_STARTUP_LOG = path.join(USERDATA_DIR, 'main-startup.log');
@@ -30,12 +30,18 @@ process.on('unhandledRejection', (reason) => {
 
 writeMainLog(`main.js loaded packaged=${app.isPackaged} exec=${process.execPath}`);
 
-// 兼容迁移：若旧路径 LocalMiniDrama 有数据而新路径为空，自动迁移
+// 兼容迁移：旧目录有数据而新目录为空时，自动迁到 DramaDesk
 ;(function migrateOldUserData() {
-  const oldPath = path.join(app.getPath('appData'), 'LocalMiniDrama');
-  if (fs.existsSync(oldPath) && !fs.existsSync(USERDATA_DIR)) {
+  if (fs.existsSync(USERDATA_DIR)) return;
+  const candidates = [
+    path.join(app.getPath('appData'), 'localminidrama-desktop'),
+    path.join(app.getPath('appData'), 'LocalMiniDrama'),
+  ];
+  for (const oldPath of candidates) {
+    if (!fs.existsSync(oldPath)) continue;
     try {
       fs.renameSync(oldPath, USERDATA_DIR);
+      return;
     } catch (e) {
       // rename 跨驱动器时会失败，此时静默忽略，用户数据仍可手动迁移
     }
@@ -259,7 +265,7 @@ app.whenReady().then(async () => {
     console.error('Failed to start backend', err);
     const { dialog } = require('electron');
     dialog.showErrorBox(
-      '本地短剧助手启动失败',
+      'DramaDesk 启动失败',
       `后端服务未能启动，请查看日志：\n${MAIN_STARTUP_LOG}\n\n${stack}`
     );
     app.quit();
