@@ -1,37 +1,57 @@
 #!/bin/bash
-# macOS 打包脚本（完整版 + 纯净版 DMG）
+# macOS 打包脚本（完整版 + 纯净版 DMG，arm64 与 x64 分开打）
 # 用法：在 desktop/ 目录下执行 bash dist-mac.sh
-# 或先授权：chmod +x dist-mac.sh && ./dist-mac.sh
+# 一个 ffmpeg-mac/ 目录一次只能放一个架构，所以 arm64 / x64 分两次构建。
 
-set -e
+set -euo pipefail
 
-# 使用国内镜像加速 Electron 下载
-export ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"
-export ELECTRON_BUILDER_BINARIES_MIRROR="https://cdn.npmmirror.com/binaries/electron-builder-binaries/"
-
-# 禁用 macOS 代码签名（无证书时跳过签名流程）
+# 本地打包默认走国内镜像。GitHub Actions 上用官方源，避免镜像在海外 runner 上失败。
+if [ "${GITHUB_ACTIONS:-}" != "true" ]; then
+  export ELECTRON_MIRROR="${ELECTRON_MIRROR:-https://npmmirror.com/mirrors/electron/}"
+  export ELECTRON_BUILDER_BINARIES_MIRROR="${ELECTRON_BUILDER_BINARIES_MIRROR:-https://cdn.npmmirror.com/binaries/electron-builder-binaries/}"
+fi
 export CSC_IDENTITY_AUTO_DISCOVERY=false
 
-# 切换到 desktop 目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-echo ""
-echo "========== [1/2] 构建完整版（含示例资源）=========="
-echo ""
+HOST="$(uname -m)"
 
-# 准备后端 + 编译前端 + 复制前端产物 + electron-builder 打包
+install_sharp_for() {
+  local arch="$1"
+  if [ "$HOST" = "arm64" ] && [ "$arch" = "x64" ]; then
+    echo "当前是 Apple Silicon，为 x64 DMG 安装 sharp 的 darwin-x64 预编译包"
+    npm install --no-save --os=darwin --cpu=x64 @img/sharp-darwin-x64@0.34.5 @img/sharp-libvips-darwin-x64@1.2.4
+  elif [ "$HOST" != "arm64" ] && [ "$arch" = "arm64" ]; then
+    echo "当前是 Intel，为 arm64 DMG 安装 sharp 的 darwin-arm64 预编译包"
+    npm install --no-save --os=darwin --cpu=arm64 @img/sharp-darwin-arm64@0.34.5 @img/sharp-libvips-darwin-arm64@1.2.4
+  fi
+}
+
+build_arch() {
+  local arch="$1"
+  echo ""
+  echo "========== ffmpeg (${arch}) =========="
+  node ../scripts/fetch-ffmpeg-mac.js "$arch"
+  install_sharp_for "$arch"
+
+  echo ""
+  echo "========== 完整版 DMG (${arch}) =========="
+  npx electron-builder --mac --"$arch" --config electron-builder-mac.json --publish never
+
+  echo ""
+  echo "========== 纯净版 DMG (${arch}) =========="
+  npx electron-builder --mac --"$arch" --config electron-builder-mac-lite.json --publish never
+}
+
+echo ""
+echo "========== 准备后端与前端 =========="
 npm run prepare-backend
 npm run build:front
 npm run copy-front
-npx electron-builder --mac --config electron-builder-mac.json
 
-echo ""
-echo "========== [2/2] 构建纯净版（不含示例资源）=========="
-echo ""
-
-# 前端/后端已准备好，直接再打一次 lite 包
-npx electron-builder --mac --config electron-builder-mac-lite.json
+build_arch arm64
+build_arch x64
 
 echo ""
 echo "========== 全部构建完成 =========="

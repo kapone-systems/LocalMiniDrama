@@ -22,21 +22,20 @@
       "filter": ["**/*"]
     },
     {
-"from": "ffmpeg-mac",
-        "to": "ffmpeg",
-        "filter": ["ffmpeg", "ffprobe"]
+      "from": "ffmpeg-linux",
+      "to": "ffmpeg",
+      "filter": ["ffmpeg", "ffprobe"]
     }
   ],
-  "mac": {
+  "linux": {
     "target": [
-      { "target": "dmg", "arch": ["x64", "arm64"] }
+      { "target": "AppImage", "arch": ["x64"] },
+      { "target": "deb", "arch": ["x64"] }
     ],
-    "category": "public.app-category.entertainment",
-    "icon": null,
-    "identity": null
-  },
-  "dmg": {
-    "title": "${productName} Lite ${version}",
-    "artifactName": "${productName}-Lite-${version}-mac-${arch}.dmg"
+    "category": "AudioVideo",
+    "executableName": "LocalMiniDrama",
+    "maintainer": "kapone-systems <noreply@github.com>",
+    "synopsis": "Local AI short-drama generator",
+    "artifactName": "LocalMiniDrama-Lite-${version}-linux-${arch}.${ext}"
   }
 }

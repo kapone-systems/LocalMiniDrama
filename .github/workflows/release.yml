@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'   # 仅匹配 vX.X.X（不含 -suffix，避免误触发）
-  workflow_dispatch:              # 允许手动触发
+  workflow_dispatch:              # 允许手动触发；只有 tag 会创建 Release
 
 permissions:
   contents: write
@@ -84,10 +84,112 @@ jobs:
           path: desktop/release/*.exe
           retention-days: 7
 
+  build-macos:
+    name: Build macOS DMG
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontweb
+        run: npm ci
+
+      - name: Install backend dependencies
+        working-directory: backend-node
+        run: npm ci
+
+      - name: Install desktop dependencies & rebuild native modules
+        working-directory: desktop
+        run: npm ci
+
+      # dist-mac.sh 会按 arm64、x64 各下载一份静态 ffmpeg，再分别打标准版和 Lite。
+      # GitHub 的 macos-latest 是 Apple Silicon；x64 依赖 electron-builder 交叉编译。
+      - name: Build macOS DMG (arm64 + x64, standard + lite)
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: bash dist-mac.sh
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: desktop/release/*.dmg
+          retention-days: 7
+
+  build-linux:
+    name: Build Linux AppImage and deb
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fakeroot dpkg xz-utils
+
+      - name: Install frontend dependencies
+        working-directory: frontweb
+        run: npm ci
+
+      - name: Install backend dependencies
+        working-directory: backend-node
+        run: npm ci
+
+      - name: Install desktop dependencies & rebuild native modules
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build Linux packages (standard + lite)
+        working-directory: desktop
+        run: bash dist-linux.sh
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: |
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-macos, build-linux]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: desktop/release/*.exe
+          files: release-assets/*
           generate_release_notes: true
           draft: true   # 先创建草稿，人工审核后手动发布
         env:

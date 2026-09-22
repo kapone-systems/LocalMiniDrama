@@ -70,8 +70,10 @@ async function main() {
   if (process.platform !== 'win32') {
     fail(
       '本脚本提供的是 Windows 构建（gyan.dev）。\n' +
-      '  macOS 请用 `brew install ffmpeg`，Linux 请用发行版包管理器安装，\n' +
-      '  后端会自动从系统 PATH 中查找 ffmpeg / ffprobe。'
+      '  打包 macOS：node scripts/fetch-ffmpeg-mac.js <arm64|x64>\n' +
+      '  打包 Linux：node scripts/fetch-ffmpeg-linux.js\n' +
+      '  只在本机开发运行时，macOS 用 `brew install ffmpeg`，Linux 用发行版包管理器安装，\n' +
+      '  后端会从系统 PATH 中查找 ffmpeg / ffprobe。'
     );
   }
 

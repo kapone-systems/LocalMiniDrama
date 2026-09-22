@@ -1,10 +1,10 @@
 # LocalMiniDrama 桌面客户端
 
-基于 Electron 的本地桌面应用，内嵌 `backend-node` 与 `frontweb`，打包为 Windows exe / macOS dmg 后可直接运行。当前版本：**v1.2.8**
+基于 Electron 的本地桌面应用，内嵌 `backend-node` 与 `frontweb`。打包后可直接运行。当前版本：**v1.4.1**（Windows exe、macOS dmg、Linux AppImage / deb）。
 
 ---
 
-## 主要功能（v1.2.8）
+## 主要功能（v1.4.1）
 
 | 模块 | 功能 |
 |------|------|
@@ -42,9 +42,19 @@
 
 ---
 
-## 打包为 exe
+## 打包
 
-在 `desktop` 目录下执行：
+三个平台都要在**本机**安装依赖后再打，不能交叉编译（`better-sqlite3`、`sharp`）。
+
+| 系统 | 命令 | 产物 |
+|------|------|------|
+| Windows | `npm run dist` 或 `npm run dist:cn` | `LocalMiniDrama-Setup-x.x.x.exe`、便携版，以及 Lite |
+| macOS | `bash dist-mac.sh` | `LocalMiniDrama-x.x.x-mac-arm64.dmg`、`...-mac-x64.dmg`，以及 Lite |
+| Linux x64 | `bash dist-linux.sh` | `LocalMiniDrama-x.x.x-linux-x64.AppImage`、`...-linux-x64.deb`，以及 Lite |
+
+GitHub Actions 在 tag `vX.Y.Z` 上会把三端产物上传到同一个 Release 草稿。
+
+### Windows
 
 ```bash
 cd desktop
@@ -52,22 +62,32 @@ npm install
 npm run dist
 ```
 
-**国内网络**：若从 GitHub 下载 Electron 或 winCodeSign 超时，使用国内镜像：
+国内网络下载 Electron 超时：
 
 ```bash
 npm run dist:cn
 ```
 
-本目录下的 `.npmrc` 已配置 `registry=https://registry.npmmirror.com`，`npm install` 会使用国内源；`dist:cn` 脚本会将 Electron 与 electron-builder 的二进制下载也切换到 npmmirror 镜像。
+本目录 `.npmrc` 已配置 `registry=https://registry.npmmirror.com`。`dist:cn` 还会把 Electron 与 electron-builder 的二进制切到 npmmirror。
 
-产物在 `desktop/release/` 下：
+### macOS / Linux
 
-| 文件 | 说明 |
+```bash
+cd desktop
+npm install
+bash dist-mac.sh      # 仅 macOS
+bash dist-linux.sh    # 仅 Linux
+```
+
+ffmpeg 不入库。脚本会分别调用 `scripts/fetch-ffmpeg-mac.js`、`scripts/fetch-ffmpeg-linux.js`。Windows 仍用 `node scripts/fetch-ffmpeg.js`（CI 里已调用）。
+
+首次运行会在用户数据目录生成 `backend/`（`configs/config.yaml` 与 `data/`）：
+
+| 系统 | 路径 |
 |------|------|
-| `LocalMiniDrama Setup x.x.x.exe` | NSIS 安装包（有安装引导，可选安装目录） |
-| `LocalMiniDrama x.x.x.exe` | 便携版（单文件，无需安装，双击即用） |
-
-首次运行时，会在用户数据目录（如 `%APPDATA%/LocalMiniDrama`）下生成 `backend/`，包含 `configs/config.yaml`（从 example 复制）和 `data/`（数据库与文件存储），按需修改配置即可。
+| Windows | `%APPDATA%\localminidrama-desktop` |
+| macOS | `~/Library/Application Support/localminidrama-desktop` |
+| Linux | `~/.config/localminidrama-desktop` |
 
 ---
 
@@ -80,9 +100,10 @@ npm run dist:cn
 | `npm run copy-front` | 将 frontweb/dist 复制到 desktop/frontweb-dist（打包前置步骤） |
 | `npm run pack` | 构建前端 + 复制 + 打出未压缩目录（便于检查打包内容） |
 | `npm run dist` | 构建前端 + 复制 + 打出 Windows 安装包与便携 exe |
-| `npm run dist:cn` | 同上，使用国内镜像（Electron、electron-builder 二进制） |
+| `npm run dist:cn` | 同上，使用国内镜像，并再打 Lite |
+| `npm run dist:mac` / `bash dist-mac.sh` | macOS 标准版 + Lite，arm64 与 x64 DMG |
+| `npm run dist:linux` / `bash dist-linux.sh` | Linux x64 标准版 + Lite，AppImage 与 deb |
 | `npm run prepare-backend` | 将 backend-node 复制到 backend-app（打包前置步骤） |
-| `bash dist-mac.sh` | macOS 一键打包（完整版 + 纯净版 DMG，含国内镜像加速） |
 
 ---
 
@@ -93,7 +114,7 @@ npm run dist:cn
 双击运行 exe 时，后端日志会自动写入：
 
 ```
-%APPDATA%\LocalMiniDrama\backend\logs\app.log
+%APPDATA%\localminidrama-desktop\backend\logs\app.log
 ```
 
 用记事本或 VS Code 打开后，点击「AI 生成角色」等按钮，查看是否有对应请求行、报错信息，便于判断是请求未发出、AI 超时还是配置有误。
@@ -101,7 +122,7 @@ npm run dist:cn
 ### 2. 从命令行运行（实时日志）
 
 ```powershell
-& "D:\path\to\release\LocalMiniDrama 1.2.8.exe"
+& "D:\path\to\release\LocalMiniDrama-1.4.1.exe"
 ```
 
 日志会直接打印在终端，操作软件时可实时看到所有输出。
@@ -110,7 +131,7 @@ npm run dist:cn
 
 ```powershell
 $env:LOCALMINIDRAMA_DEVTOOLS=1
-& "D:\path\to\release\LocalMiniDrama 1.2.8.exe"
+& "D:\path\to\release\LocalMiniDrama-1.4.1.exe"
 ```
 
 在 Network 面板查看各 API 请求（如 `POST /api/v1/generation/characters`）是否正常发出和返回。
@@ -120,7 +141,7 @@ $env:LOCALMINIDRAMA_DEVTOOLS=1
 配置文件位于：
 
 ```
-%APPDATA%\LocalMiniDrama\backend\configs\config.yaml
+%APPDATA%\localminidrama-desktop\backend\configs\config.yaml
 ```
 
 AI 相关配置需在软件「AI 配置」弹窗中填写并保存（会写入上述 yaml 文件）；本机网络需能访问对应 API（如 dashscope、volcengine 等）。

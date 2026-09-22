@@ -5,8 +5,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>本地短剧助手 · grok2api 结合版 - AI 驱动的短剧创作工具</title>
-    <meta name="description" content="LocalMiniDrama × grok2api 结合版：基于AI的短剧创作工具，支持角色、场景、道具智能生成，分镜编辑，一键视频合成，并接入 grok2api 图片/视频/文本协议。免费开源。">
+    <title>本地短剧助手 · 修改版 - AI 驱动的短剧创作工具</title>
+    <meta name="description" content="LocalMiniDrama 修改版：基于 AI 的短剧创作工具，支持角色、场景、道具智能生成，分镜编辑，一键视频合成。提供 Windows、macOS、Linux 安装包。免费开源。">
     <meta name="keywords" content="AI视频生成,短剧创作,分镜工具,AI视频合成,开源视频工具,grok2api,LocalMiniDrama">
     
     <!-- Fonts -->
@@ -242,7 +242,7 @@
                 
                 <!-- Version Info -->
                 <p class="text-primary-300 text-sm mt-6 animate-fade-in-up delay-400">
-                    当前版本: v1.3.0（grok2api 结合版） · 开源免费 · 持续更新
+                    当前版本: v1.4.1（修改版） · Windows / macOS / Linux · 开源免费
                     <span class="mx-2 opacity-50">·</span>
                     <a href="#ai-relay" class="text-primary-100 hover:text-white underline underline-offset-2">各大平台中转示例配置</a>
                     <span class="mx-2 opacity-50">·</span>
@@ -560,11 +560,10 @@
             <div class="text-center">
                 <h2 class="text-4xl font-bold text-white mb-6">立即下载体验</h2>
                 <p class="text-xl text-primary-100 mb-4 max-w-2xl mx-auto">
-                    完全免费，开源可用。当前提供 Windows 版安装包
+                    完全免费，开源可用。提供 Windows、macOS、Linux 安装包
                 </p>
                 <p class="text-base text-primary-200 mb-10 max-w-3xl mx-auto">
-                    本页面为 <strong class="text-white">LocalMiniDrama × grok2api 结合版</strong>，
-                    新增 grok2api 图片 / 视频 / 文本协议接入。
+                    本页面为 <strong class="text-white">LocalMiniDrama 修改版 v1.4.1</strong>。
                     下载请认准下方本仓库的 Release，勿使用原项目的下载链接。
                 </p>
 
@@ -573,7 +572,7 @@
                     <a href="https://github.com/kapone-systems/LocalMiniDrama/releases/latest"
                        class="bg-white text-primary-700 px-8 py-4 rounded-xl font-semibold text-lg flex items-center gap-3 shadow-soft hover:shadow-soft-lg transition-all hover:-translate-y-1">
                         <i data-lucide="download" class="w-6 h-6"></i>
-                        下载 Windows 版
+                        前往 Releases 下载
                     </a>
                     <a href="https://github.com/kapone-systems/LocalMiniDrama"
                        class="btn-secondary px-8 py-4 rounded-xl text-white font-semibold text-lg flex items-center gap-3">
@@ -583,15 +582,19 @@
                 </div>
 
                 <!-- Download Notes -->
-                <div class="max-w-2xl mx-auto text-left bg-white/10 rounded-xl p-5 space-y-2">
-                    <p class="text-primary-100 text-sm font-semibold">Release 中的四个安装包：</p>
-                    <p class="text-primary-200 text-sm"><code class="text-white">LocalMiniDrama-grok2api-Setup-x.x.x.exe</code> —— 安装版，含示例项目</p>
-                    <p class="text-primary-200 text-sm"><code class="text-white">LocalMiniDrama-grok2api-x.x.x.exe</code> —— 便携版，免安装</p>
-                    <p class="text-primary-200 text-sm"><code class="text-white">LocalMiniDrama-Lite-grok2api-*.exe</code> —— 精简版，不含示例项目</p>
+                <div class="max-w-3xl mx-auto text-left bg-white/10 rounded-xl p-5 space-y-2">
+                    <p class="text-primary-100 text-sm font-semibold">Windows</p>
+                    <p class="text-primary-200 text-sm"><code class="text-white">LocalMiniDrama-Setup-x.x.x.exe</code> 安装版（含示例） · <code class="text-white">LocalMiniDrama-x.x.x.exe</code> 便携版</p>
+                    <p class="text-primary-200 text-sm"><code class="text-white">LocalMiniDrama-Lite-Setup-x.x.x.exe</code> / <code class="text-white">LocalMiniDrama-Lite-x.x.x.exe</code> 精简版</p>
+                    <p class="text-primary-100 text-sm font-semibold pt-2">macOS（未签名）</p>
+                    <p class="text-primary-200 text-sm"><code class="text-white">LocalMiniDrama-x.x.x-mac-arm64.dmg</code> Apple Silicon · <code class="text-white">LocalMiniDrama-x.x.x-mac-x64.dmg</code> Intel · Lite 文件名含 <code class="text-white">-Lite-</code></p>
+                    <p class="text-primary-100 text-sm font-semibold pt-2">Linux x64</p>
+                    <p class="text-primary-200 text-sm"><code class="text-white">LocalMiniDrama-x.x.x-linux-x64.AppImage</code> 便携 · <code class="text-white">LocalMiniDrama-x.x.x-linux-x64.deb</code> 安装 · Lite 同样两种</p>
                     <p class="text-primary-100 text-sm pt-2">
-                        安装包已内置 ffmpeg / ffprobe，无需额外安装依赖。
-                        使用 grok2api 功能需自行部署
-                        <a href="https://github.com/chenyme/grok2api" target="_blank" rel="noopener noreferrer" class="text-white underline hover:no-underline">grok2api 服务</a>。
+                        安装包已内置 ffmpeg / ffprobe。Linux 烧录中文字幕可安装 <code class="text-white">fonts-noto-cjk</code>。
+                        配置目录：Windows <code class="text-white">%APPDATA%\localminidrama-desktop</code>，
+                        macOS <code class="text-white">~/Library/Application Support/localminidrama-desktop</code>，
+                        Linux <code class="text-white">~/.config/localminidrama-desktop</code>。
                     </p>
                 </div>
             </div>

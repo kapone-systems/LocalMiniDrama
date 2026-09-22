@@ -4,9 +4,9 @@
 
 **A locally-running AI short drama & comic generator — download and run, no cloud required, fully open source**
 
-[![version](https://img.shields.io/badge/version-1.4.0-blue?style=flat-square)](../../releases)
+[![version](https://img.shields.io/badge/version-1.4.1-blue?style=flat-square)](../../releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](../LICENSE)
-[![platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](#)
+[![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square)](#)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](../../pulls)
 
@@ -89,16 +89,36 @@ This project is built entirely in JavaScript from scratch. Connect your own AI A
 
 ## 🚀 Quick Start
 
-### Option A — Download exe (recommended)
+### Option A — Download an installer (recommended)
 
-Go to **[Releases](../../releases)** and download the latest:
-- `LocalMiniDrama Setup x.x.x.exe` — NSIS installer
-- `LocalMiniDrama x.x.x.exe` — portable, no install needed
+Go to **[Releases](../../releases)**. Standard builds include the example project; Lite builds do not.
 
-Double-click → open **AI Config** → enter your API key → start creating.
+**Windows**
 
-> On first launch a config file is created at:  
-> `%APPDATA%\LocalMiniDrama\backend\configs\config.yaml`
+- `LocalMiniDrama-Setup-x.x.x.exe` — installer
+- `LocalMiniDrama-x.x.x.exe` — portable
+- `LocalMiniDrama-Lite-Setup-x.x.x.exe` / `LocalMiniDrama-Lite-x.x.x.exe` — Lite
+
+Config: `%APPDATA%\localminidrama-desktop\backend\configs\config.yaml`
+
+**macOS** (unsigned; if Gatekeeper blocks it, right-click → Open)
+
+- `LocalMiniDrama-x.x.x-mac-arm64.dmg` / `LocalMiniDrama-x.x.x-mac-x64.dmg`
+- Lite: `LocalMiniDrama-Lite-x.x.x-mac-arm64.dmg` / `LocalMiniDrama-Lite-x.x.x-mac-x64.dmg`
+
+Config: `~/Library/Application Support/localminidrama-desktop/backend/configs/config.yaml`
+
+**Linux x64**
+
+- `LocalMiniDrama-x.x.x-linux-x64.AppImage` — `chmod +x`, then run
+- `LocalMiniDrama-x.x.x-linux-x64.deb` — `sudo apt install ./LocalMiniDrama-x.x.x-linux-x64.deb`
+- Lite uses the same names with `-Lite-`
+
+Config: `~/.config/localminidrama-desktop/backend/configs/config.yaml`
+
+Burned-in subtitles need a CJK font. If Chinese characters render as boxes: `sudo apt install fonts-noto-cjk`.
+
+Installers bundle ffmpeg / ffprobe. Open **AI Config**, enter an API key, and start creating.
 
 ### Option B — Development Mode
 
@@ -106,7 +126,7 @@ Double-click → open **AI Config** → enter your API key → start creating.
 
 ```bash
 # 1. Clone
-git clone https://github.com/your-username/LocalMiniDrama.git
+git clone https://github.com/kapone-systems/LocalMiniDrama.git
 cd LocalMiniDrama
 
 # 2. Backend (port 5679)

@@ -6,9 +6,9 @@
 
 *基于上游 [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) v1.2.8 二次开发*
 
-[![version](https://img.shields.io/badge/version-1.4.0-blue?style=flat-square)](https://github.com/kapone-systems/LocalMiniDrama/releases)
+[![version](https://img.shields.io/badge/version-1.4.1-blue?style=flat-square)](https://github.com/kapone-systems/LocalMiniDrama/releases)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![platform](https://img.shields.io/badge/platform-Windows-lightgrey?style=flat-square)](#-快速开始)
+[![platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey?style=flat-square)](#-快速开始)
 [![stack](https://img.shields.io/badge/Vue3%20%2B%20Node.js%20%2B%20Electron-informational?style=flat-square)](#-项目架构)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/kapone-systems/LocalMiniDrama/pulls)
 
@@ -32,7 +32,7 @@
 | 下载方式 | 上游 Releases | **只从本仓库 [Releases](https://github.com/kapone-systems/LocalMiniDrama/releases) 下载** |
 | grok2api 接入 | ❌ 无 | ✅ 图片 / 视频 / 文本协议 |
 | 本地 ComfyUI | ❌ 无 | ✅ 直连本机 8188 生图 / 分镜图 / 视频 |
-| 版本号 | 1.2.8 | 1.4.0 |
+| 版本号 | 1.2.8 | 1.4.1 |
 
 **重要：**
 
@@ -193,21 +193,46 @@
 
 ## 🚀 快速开始
 
-### 方式一：下载 exe（推荐）
+### 方式一：下载安装包（推荐）
 
-前往 **[本仓库 Releases 下载页](https://github.com/kapone-systems/LocalMiniDrama/releases)**：
+前往 **[本仓库 Releases 下载页](https://github.com/kapone-systems/LocalMiniDrama/releases)**。标准版含示例项目，Lite 不含。
 
-| 版本 | 说明 | 适合 |
-|------|------|------|
-| `LocalMiniDrama-Setup-x.x.x.exe` | 安装版，**含示例项目** | 新手入门 |
-| `LocalMiniDrama-x.x.x.exe` | 便携版，免安装 | 想直接运行 |
-| `LocalMiniDrama-Lite-Setup-x.x.x.exe` | 精简安装版，不含示例项目 | 熟悉流程后 |
-| `LocalMiniDrama-Lite-x.x.x.exe` | 精简便携版 | 追求小体积 |
+**Windows**
 
-双击运行 → 「AI 配置」填入 API Key → 开始创作。
+| 文件 | 说明 |
+|------|------|
+| `LocalMiniDrama-Setup-x.x.x.exe` | 安装版 |
+| `LocalMiniDrama-x.x.x.exe` | 便携版，免安装 |
+| `LocalMiniDrama-Lite-Setup-x.x.x.exe` | 精简安装版 |
+| `LocalMiniDrama-Lite-x.x.x.exe` | 精简便携版 |
 
-> 安装包已内置 ffmpeg / ffprobe 与示例工程，无需额外安装任何依赖。
-> 首次运行配置：`%APPDATA%\LocalMiniDrama\backend\configs\config.yaml`
+双击运行。首次配置：`%APPDATA%\localminidrama-desktop\backend\configs\config.yaml`
+
+**macOS**（未签名，首次打开若被拦截：右键 → 打开，或在「隐私与安全性」里允许）
+
+| 文件 | 说明 |
+|------|------|
+| `LocalMiniDrama-x.x.x-mac-arm64.dmg` | Apple Silicon 标准版 |
+| `LocalMiniDrama-x.x.x-mac-x64.dmg` | Intel 标准版 |
+| `LocalMiniDrama-Lite-x.x.x-mac-arm64.dmg` | Apple Silicon 精简版 |
+| `LocalMiniDrama-Lite-x.x.x-mac-x64.dmg` | Intel 精简版 |
+
+打开 DMG，把 App 拖进「应用程序」。首次配置：`~/Library/Application Support/localminidrama-desktop/backend/configs/config.yaml`
+
+**Linux x64**
+
+| 文件 | 说明 |
+|------|------|
+| `LocalMiniDrama-x.x.x-linux-x64.AppImage` | 便携版。`chmod +x` 后直接运行 |
+| `LocalMiniDrama-x.x.x-linux-x64.deb` | Debian / Ubuntu 安装版：`sudo apt install ./LocalMiniDrama-x.x.x-linux-x64.deb` |
+| `LocalMiniDrama-Lite-x.x.x-linux-x64.AppImage` | 精简便携版 |
+| `LocalMiniDrama-Lite-x.x.x-linux-x64.deb` | 精简安装版 |
+
+首次配置：`~/.config/localminidrama-desktop/backend/configs/config.yaml`
+
+字幕烧录需要中文字体。若汉字变成方框，安装：`sudo apt install fonts-noto-cjk`
+
+三个平台的安装包都已内置 ffmpeg / ffprobe。打开软件 → 「AI 配置」填入 API Key → 开始创作。
 
 ### 方式二：源码开发
 
@@ -227,11 +252,7 @@ cd frontweb && npm install && npm run dev
 
 后端配置已随仓库提供（`backend-node/configs/config.yaml`），**无需手动复制**；API Key 在前端「AI 配置」页填写。
 
-若需用到视频合成 / 时长探测功能，还需获取 ffmpeg 与 ffprobe（各约 95MB，未入库）：
-
-```bash
-node scripts/fetch-ffmpeg.js
-```
+若需用到视频合成 / 时长探测功能，开发模式要能找到 ffmpeg。Windows 可执行 `node scripts/fetch-ffmpeg.js`；macOS 用 `brew install ffmpeg`；Linux 用发行版包管理器（如 `sudo apt install ffmpeg`）。后端会从系统 PATH 查找。打包进安装包的二进制由 `scripts/fetch-ffmpeg-mac.js` / `scripts/fetch-ffmpeg-linux.js` 在构建时下载，不必放进仓库。
 
 浏览器打开 `http://localhost:3013`，或双击根目录 **`run_dev.bat`** 一键启动。
 

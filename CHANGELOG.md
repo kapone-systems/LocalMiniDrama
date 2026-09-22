@@ -10,6 +10,23 @@
 
 ---
 
+## [1.4.1] - 2026-09-22
+
+安装包与文档更新，没有功能改动。三个平台从同一次提交构建。
+
+### 新增
+
+- **macOS 安装包**：标准版与 Lite，各提供 arm64 / x64 DMG。未签名、未公证。
+- **Linux x64 安装包**：标准版与 Lite，各提供 AppImage（便携）和 deb（安装）。
+
+### 优化
+
+- Windows 安装说明与落地页对齐到当前文件名（去掉 `grok2api` 中缀和带空格的旧名字）。
+- 打包后的配置目录更正为 `localminidrama-desktop`（Windows 在 `%APPDATA%`，macOS 在 `~/Library/Application Support`，Linux 在 `~/.config`）。
+- Linux 上烧录字幕若没有中文字体，会退到 DejaVu，汉字可能显示成方框。可安装 `fonts-noto-cjk`。
+
+---
+
 ## [1.4.0] - 2026-09-21
 
 本版本安装包基于当前主分支 `dev`，在 v1.3.0 之上纳入本地 ComfyUI、视频提示词 Skill，以及「修改版」对外名称。
